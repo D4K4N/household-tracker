@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Household GPS Water Meter Tracker">
+    <meta name="theme-color" content="#2196F3">
+    <title>Household Tracker</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Search Bar -->
+        <div class="search-container">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search household or surname..." disabled>
+        </div>
+
+        <!-- Map Container -->
+        <div id="map"></div>
+
+        <!-- Map Controls -->
+        <div class="map-controls">
+            <button id="myLocationBtn" class="control-btn" title="Center on my location">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+            </button>
+        </div>
+
+        <!-- GPS Status Bar -->
+        <div id="gpsStatus" class="status-bar">
+            <div class="status-content">
+                <span id="gpsStatusText" class="status-text">
+                    <span class="status-indicator">🟡</span>
+                    <span>Searching for GPS...</span>
+                </span>
+                <span id="gpsAccuracy" class="accuracy-text"></span>
+            </div>
+            <div id="gpsCoordinates" class="coordinates-text"></div>
+        </div>
+
+        <!-- Bottom Action Button -->
+        <div class="bottom-action">
+            <button id="addHouseholdBtn" class="action-btn" disabled>
+                + ADD HOUSEHOLD
+            </button>
+        </div>
+
+        <!-- Add Household Modal -->
+        <div id="addHouseholdModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add Household</h2>
+                    <button class="close-btn" onclick="closeAddHouseholdModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="addHouseholdForm">
+                        <div class="form-group">
+                            <label>Surname <span class="required">*</span></label>
+                            <input type="text" id="surname" name="surname" required placeholder="e.g., Suzuki">
+                        </div>
+
+                        <div class="form-group">
+                            <label>First Name <span class="required">*</span></label>
+                            <input type="text" id="firstName" name="firstName" required placeholder="e.g., John">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Address</label>
+                            <input type="text" id="address" name="address" placeholder="e.g., Purok 3, Diclum">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Meter Number</label>
+                            <input type="text" id="meterNumber" name="meterNumber" placeholder="e.g., WM-00123">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Contact Number</label>
+                            <input type="tel" id="contactNumber" name="contactNumber" placeholder="e.g., 09123456789">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Notes</label>
+                            <textarea id="notes" name="notes" rows="3" placeholder="e.g., Gate beside sari-sari store"></textarea>
+                        </div>
+
+                        <div class="location-info">
+                            <p><strong>📍 GPS Location:</strong></p>
+                            <p id="capturedLocation">Latitude: ---, Longitude: ---</p>
+                            <p id="capturedAccuracy">Accuracy: ---</p>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn-secondary" onclick="closeAddHouseholdModal()">Cancel</button>
+                            <button type="submit" class="btn-primary">Save Household</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Household Modal -->
+        <div id="editHouseholdModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Edit Household</h2>
+                    <button class="close-btn" onclick="closeEditHouseholdModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="editHouseholdForm">
+                        <input type="hidden" id="editHouseholdId">
+
+                        <div class="form-group">
+                            <label>Surname <span class="required">*</span></label>
+                            <input type="text" id="editSurname" name="surname" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>First Name <span class="required">*</span></label>
+                            <input type="text" id="editFirstName" name="firstName" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Address</label>
+                            <input type="text" id="editAddress" name="address">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Meter Number</label>
+                            <input type="text" id="editMeterNumber" name="meterNumber">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Contact Number</label>
+                            <input type="tel" id="editContactNumber" name="contactNumber">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Notes</label>
+                            <textarea id="editNotes" name="notes" rows="3"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="updateLocation">
+                                Update location to current GPS position
+                            </label>
+                        </div>
+
+                        <div class="location-info">
+                            <p><strong>📍 Saved Location:</strong></p>
+                            <p id="editSavedLocation">Latitude: ---, Longitude: ---</p>
+                            <p id="editSavedAccuracy">Accuracy: ---</p>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn-secondary" onclick="closeEditHouseholdModal()">Cancel</button>
+                            <button type="submit" class="btn-primary">Update Household</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Results Dropdown -->
+        <div id="searchResults" class="search-results"></div>
+
+        <!-- Menu Button -->
+        <button id="menuBtn" class="menu-btn">☰</button>
+
+        <!-- Side Menu -->
+        <div id="sideMenu" class="side-menu">
+            <div class="menu-header">
+                <h2>Menu</h2>
+                <button class="close-btn" onclick="closeSideMenu()">&times;</button>
+            </div>
+            <div class="menu-content">
+                <button class="menu-item" onclick="showAllHouseholds()">
+                    📍 Show All Households
+                </button>
+                <button class="menu-item" onclick="showHouseholdsList()">
+                    📋 Household List
+                </button>
+                <button class="menu-item" onclick="exportData()">
+                    💾 Export Data
+                </button>
+                <button class="menu-item" onclick="importData()">
+                    📥 Import Data
+                </button>
+                <button class="menu-item" onclick="showAbout()">
+                    ℹ️ About
+                </button>
+            </div>
+        </div>
+
+        <!-- Households List Modal -->
+        <div id="householdsListModal" class="modal">
+            <div class="modal-content modal-large">
+                <div class="modal-header">
+                    <h2>All Households</h2>
+                    <button class="close-btn" onclick="closeHouseholdsListModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="householdsList" class="households-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    
+    <!-- Application JS -->
+    <script src="js/gps.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/households.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

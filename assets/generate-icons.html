@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Icons</title>
+</head>
+<body>
+    <h2>Icon Generator</h2>
+    <p>Right-click each canvas and "Save image as..."</p>
+    
+    <h3>192x192 Icon</h3>
+    <canvas id="icon192" width="192" height="192"></canvas>
+    
+    <h3>512x512 Icon</h3>
+    <canvas id="icon512" width="512" height="512"></canvas>
+
+    <script>
+        function drawIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#2196F3';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Pin shape
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const radius = size / 4;
+            ctx.arc(centerX, centerY - radius / 2, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Pin bottom
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY + radius / 2);
+            ctx.lineTo(centerX - radius / 2, centerY + radius * 1.5);
+            ctx.lineTo(centerX + radius / 2, centerY + radius * 1.5);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Inner circle
+            ctx.fillStyle = '#2196F3';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY - radius / 2, radius / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        drawIcon('icon192', 192);
+        drawIcon('icon512', 512);
+    </script>
+</body>
+</html>
