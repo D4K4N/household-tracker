@@ -9,6 +9,9 @@ class MapManager {
         this.currentLocationMarker = null;
         this.currentLocationCircle = null;
         this.isInitialized = false;
+        this.gpsPath = null; // Track GPS path
+        this.pathCoordinates = []; // Store GPS coordinates for path
+        this.routeLine = null; // Line to selected household
         
         // Barangay Diclum center coordinates
         this.diclumCenter = [8.3676, 124.8591];
@@ -62,32 +65,11 @@ class MapManager {
             tapTolerance: 15
         }).setView(this.diclumCenter, this.defaultZoom);
 
-        // Add multiple satellite tile providers for redundancy
-        // Primary: Google Satellite (most reliable)
-        const googleSat = L.tileLayer('http://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-            attribution: 'Imagery &copy; Google',
-            maxZoom: this.maxZoom,
-            minZoom: this.minZoom,
-            subdomains: ['0', '1', '2', '3']
-        });
-
-        // Backup: Esri World Imagery
-        const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri',
-            maxZoom: this.maxZoom,
-            minZoom: this.minZoom
-        });
-
-        // Try Google first, fallback to Esri if it fails
-        googleSat.addTo(this.map);
-        
-        // Add hybrid labels overlay (roads, labels on top of satellite)
-        L.tileLayer('http://mt{s}.google.com/vt/lyrs=h&x={x}&y={y}&z={z}', {
-            attribution: '',
-            maxZoom: this.maxZoom,
-            minZoom: this.minZoom,
-            subdomains: ['0', '1', '2', '3'],
-            opacity: 0.7
+        // Use OpenStreetMap tiles (simpler and caches better)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19,
+            minZoom: 3
         }).addTo(this.map);
 
         // Add zoom control to bottom right
@@ -109,6 +91,28 @@ class MapManager {
         }
 
         const latlng = [latitude, longitude];
+
+        // Add to GPS path
+        this.pathCoordinates.push(latlng);
+        
+        // Keep only last 100 points to avoid memory issues
+        if (this.pathCoordinates.length > 100) {
+            this.pathCoordinates.shift();
+        }
+
+        // Draw GPS path (shows where you've walked)
+        if (this.gpsPath) {
+            this.map.removeLayer(this.gpsPath);
+        }
+        
+        if (this.pathCoordinates.length > 1) {
+            this.gpsPath = L.polyline(this.pathCoordinates, {
+                color: '#2196F3',
+                weight: 3,
+                opacity: 0.6,
+                dashArray: '5, 5'
+            }).addTo(this.map);
+        }
 
         // If marker doesn't exist, create it
         if (!this.currentLocationMarker) {
@@ -189,6 +193,63 @@ class MapManager {
         this.map.flyTo([latitude, longitude], zoom || this.defaultZoom, {
             duration: 1
         });
+    }
+
+    /**
+     * Draw route line from current location to household
+     */
+    drawRouteToHousehold(householdLat, householdLng) {
+        // Remove existing route
+        if (this.routeLine) {
+            this.map.removeLayer(this.routeLine);
+        }
+
+        // Get current location
+        if (!this.currentLocationMarker) {
+            console.log('No current location available');
+            return;
+        }
+
+        const currentLatLng = this.currentLocationMarker.getLatLng();
+        const householdLatLng = [householdLat, householdLng];
+
+        // Draw straight line route
+        this.routeLine = L.polyline([
+            [currentLatLng.lat, currentLatLng.lng],
+            householdLatLng
+        ], {
+            color: '#FF4444',
+            weight: 4,
+            opacity: 0.7,
+            dashArray: '10, 10'
+        }).addTo(this.map);
+
+        // Calculate distance
+        const distance = this.map.distance(currentLatLng, householdLatLng);
+        const distanceText = distance < 1000 
+            ? `${Math.round(distance)}m away` 
+            : `${(distance / 1000).toFixed(2)}km away`;
+
+        // Show route info
+        console.log(`Route drawn: ${distanceText}`);
+
+        // Fit map to show both points
+        this.map.fitBounds([
+            [currentLatLng.lat, currentLatLng.lng],
+            householdLatLng
+        ], { padding: [50, 50] });
+
+        return distanceText;
+    }
+
+    /**
+     * Clear route line
+     */
+    clearRoute() {
+        if (this.routeLine) {
+            this.map.removeLayer(this.routeLine);
+            this.routeLine = null;
+        }
     }
 
     /**

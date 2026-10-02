@@ -221,13 +221,20 @@ class HouseholdManager {
      */
     selectHousehold(household) {
         this.selectedHousehold = household;
-        this.map.flyTo(household.latitude, household.longitude, 18);
+        
+        // Draw route line from current location to household
+        const distance = this.map.drawRouteToHousehold(household.latitude, household.longitude);
+        
+        // Fly to show both current location and household
+        // (fitBounds is called inside drawRouteToHousehold)
         
         // Open popup
         const marker = this.markers.get(household.id);
         if (marker) {
             marker.openPopup();
         }
+        
+        console.log(`Selected: ${household.fullName} - ${distance}`);
     }
 
     /**

@@ -1,9 +1,11 @@
 /**
  * Service Worker - Offline Support
- * Caches app assets for offline functionality
+ * Caches app assets and map tiles for offline functionality
  */
 
-const CACHE_NAME = 'household-tracker-v1';
+const CACHE_NAME = 'household-tracker-v2';
+const TILE_CACHE = 'map-tiles-v1';
+
 const urlsToCache = [
     '/',
     '/index.html',
@@ -49,7 +51,7 @@ self.addEventListener('activate', (event) => {
             .then((cacheNames) => {
                 return Promise.all(
                     cacheNames.map((cacheName) => {
-                        if (cacheName !== CACHE_NAME) {
+                        if (cacheName !== CACHE_NAME && cacheName !== TILE_CACHE) {
                             console.log('Service Worker: Deleting old cache', cacheName);
                             return caches.delete(cacheName);
                         }
@@ -65,13 +67,40 @@ self.addEventListener('activate', (event) => {
 
 /**
  * Fetch event - serve from cache, fallback to network
- * Strategy: Cache First, Network Fallback
+ * Strategy: Cache First for app, Network First for tiles
  */
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // Skip cross-origin requests (Leaflet tiles, external resources)
+    // Handle OpenStreetMap tiles separately
+    if (url.hostname.includes('tile.openstreetmap.org')) {
+        event.respondWith(
+            caches.open(TILE_CACHE).then((cache) => {
+                return cache.match(request).then((cachedResponse) => {
+                    // Return cached tile if available
+                    if (cachedResponse) {
+                        return cachedResponse;
+                    }
+
+                    // Fetch from network and cache
+                    return fetch(request).then((response) => {
+                        // Only cache successful responses
+                        if (response && response.status === 200) {
+                            cache.put(request, response.clone());
+                        }
+                        return response;
+                    }).catch(() => {
+                        // Return empty tile if offline and not cached
+                        return new Response('', { status: 404 });
+                    });
+                });
+            })
+        );
+        return;
+    }
+
+    // Skip other cross-origin requests
     if (url.origin !== location.origin) {
         return;
     }
@@ -92,22 +121,17 @@ self.addEventListener('fetch', (event) => {
         caches.match(request)
             .then((cachedResponse) => {
                 if (cachedResponse) {
-                    // Return cached version
                     return cachedResponse;
                 }
 
-                // Not in cache, fetch from network
                 return fetch(request)
                     .then((response) => {
-                        // Check if valid response
                         if (!response || response.status !== 200 || response.type !== 'basic') {
                             return response;
                         }
 
-                        // Clone the response
                         const responseToCache = response.clone();
 
-                        // Cache the new response
                         caches.open(CACHE_NAME)
                             .then((cache) => {
                                 cache.put(request, responseToCache);
@@ -116,7 +140,6 @@ self.addEventListener('fetch', (event) => {
                         return response;
                     })
                     .catch(() => {
-                        // Network failed, no cache available
                         console.log('Service Worker: Fetch failed for', request.url);
                     });
             })
