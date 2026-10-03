@@ -10,6 +10,7 @@ class HouseholdManager {
         this.households = [];
         this.markers = new Map(); // householdId -> marker
         this.selectedHousehold = null;
+        this.markerCluster = null; // Cluster group for performance
     }
 
     /**
@@ -17,9 +18,19 @@ class HouseholdManager {
      */
     async initialize() {
         try {
+            // Create marker cluster group (fixes lag!)
+            this.markerCluster = L.markerClusterGroup({
+                maxClusterRadius: 50,
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false,
+                zoomToBoundsOnClick: true
+            });
+            
+            this.map.getMap().addLayer(this.markerCluster);
+
             this.households = await this.db.getAllHouseholds();
             this.renderAllMarkers();
-            console.log(`Loaded ${this.households.length} households`);
+            console.log(`Loaded ${this.households.length} households with clustering`);
         } catch (error) {
             console.error('Failed to load households:', error);
         }
@@ -113,8 +124,8 @@ class HouseholdManager {
             this.selectHousehold(household);
         });
 
-        // Add to map
-        marker.addTo(this.map.getMap());
+        // Add to cluster group instead of directly to map
+        this.markerCluster.addLayer(marker);
 
         // Store reference
         this.markers.set(household.id, marker);

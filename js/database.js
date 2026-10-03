@@ -6,8 +6,9 @@
 class HouseholdDatabase {
     constructor() {
         this.dbName = 'HouseholdTrackerDB';
-        this.dbVersion = 1;
+        this.dbVersion = 2; // Increment version for new object store
         this.storeName = 'households';
+        this.routeStoreName = 'routes'; // New store for routes
         this.db = null;
     }
 
@@ -32,7 +33,7 @@ class HouseholdDatabase {
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
 
-                // Create object store if it doesn't exist
+                // Create households object store if it doesn't exist
                 if (!db.objectStoreNames.contains(this.storeName)) {
                     const objectStore = db.createObjectStore(this.storeName, {
                         keyPath: 'id',
@@ -46,7 +47,22 @@ class HouseholdDatabase {
                     objectStore.createIndex('meterNumber', 'meterNumber', { unique: false });
                     objectStore.createIndex('createdAt', 'createdAt', { unique: false });
 
-                    console.log('Database setup complete');
+                    console.log('Households store setup complete');
+                }
+
+                // Create routes object store if it doesn't exist
+                if (!db.objectStoreNames.contains(this.routeStoreName)) {
+                    const routeStore = db.createObjectStore(this.routeStoreName, {
+                        keyPath: 'id',
+                        autoIncrement: true
+                    });
+
+                    // Create indexes for routes
+                    routeStore.createIndex('startHouseholdId', 'startHouseholdId', { unique: false });
+                    routeStore.createIndex('destinationHouseholdId', 'destinationHouseholdId', { unique: false });
+                    routeStore.createIndex('createdAt', 'createdAt', { unique: false });
+
+                    console.log('Routes store setup complete');
                 }
             };
         });
@@ -258,3 +274,147 @@ class HouseholdDatabase {
         });
     }
 }
+
+
+    // ========== ROUTE METHODS ==========
+
+    /**
+     * Add a new route
+     */
+    async addRoute(routeData) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.routeStoreName], 'readwrite');
+            const objectStore = transaction.objectStore(this.routeStoreName);
+
+            const route = {
+                name: routeData.name || '',
+                startHouseholdId: routeData.startHouseholdId || null,
+                destinationHouseholdId: routeData.destinationHouseholdId || null,
+                coordinates: routeData.coordinates || [],
+                distance: routeData.distance || 0,
+                duration: routeData.duration || 0,
+                createdAt: routeData.createdAt || new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            const request = objectStore.add(route);
+
+            request.onsuccess = () => {
+                route.id = request.result;
+                console.log('Route added:', route);
+                resolve(route);
+            };
+
+            request.onerror = () => {
+                console.error('Error adding route');
+                reject(request.error);
+            };
+        });
+    }
+
+    /**
+     * Get all routes
+     */
+    async getAllRoutes() {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.routeStoreName], 'readonly');
+            const objectStore = transaction.objectStore(this.routeStoreName);
+            const request = objectStore.getAll();
+
+            request.onsuccess = () => {
+                resolve(request.result);
+            };
+
+            request.onerror = () => {
+                reject(request.error);
+            };
+        });
+    }
+
+    /**
+     * Get route by ID
+     */
+    async getRoute(id) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.routeStoreName], 'readonly');
+            const objectStore = transaction.objectStore(this.routeStoreName);
+            const request = objectStore.get(id);
+
+            request.onsuccess = () => {
+                resolve(request.result);
+            };
+
+            request.onerror = () => {
+                reject(request.error);
+            };
+        });
+    }
+
+    /**
+     * Update route
+     */
+    async updateRoute(id, updates) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.routeStoreName], 'readwrite');
+            const objectStore = transaction.objectStore(this.routeStoreName);
+            const getRequest = objectStore.get(id);
+
+            getRequest.onsuccess = () => {
+                const route = getRequest.result;
+                
+                if (!route) {
+                    reject(new Error('Route not found'));
+                    return;
+                }
+
+                Object.assign(route, updates);
+                route.updatedAt = new Date().toISOString();
+
+                const updateRequest = objectStore.put(route);
+
+                updateRequest.onsuccess = () => {
+                    console.log('Route updated:', route);
+                    resolve(route);
+                };
+
+                updateRequest.onerror = () => {
+                    reject(updateRequest.error);
+                };
+            };
+
+            getRequest.onerror = () => {
+                reject(getRequest.error);
+            };
+        });
+    }
+
+    /**
+     * Delete route
+     */
+    async deleteRoute(id) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.routeStoreName], 'readwrite');
+            const objectStore = transaction.objectStore(this.routeStoreName);
+            const request = objectStore.delete(id);
+
+            request.onsuccess = () => {
+                console.log('Route deleted:', id);
+                resolve(true);
+            };
+
+            request.onerror = () => {
+                reject(request.error);
+            };
+        });
+    }
+
+    /**
+     * Get routes for a specific household
+     */
+    async getRoutesForHousehold(householdId) {
+        const allRoutes = await this.getAllRoutes();
+        return allRoutes.filter(route => 
+            route.startHouseholdId === householdId || 
+            route.destinationHouseholdId === householdId
+        );
+    }

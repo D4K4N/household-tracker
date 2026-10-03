@@ -8,6 +8,7 @@ const gpsTracker = new GPSTracker();
 const mapManager = new MapManager();
 const database = new HouseholdDatabase();
 let householdManager;
+let routeRecorder; // Route recording system
 
 // UI Elements
 let gpsStatusText;
@@ -20,8 +21,20 @@ let searchResults;
 let menuBtn;
 let sideMenu;
 
+// Route UI Elements
+let startRouteBtn;
+let routeControls;
+let pauseRouteBtn;
+let resumeRouteBtn;
+let saveRouteBtn;
+let cancelRouteBtn;
+let recordingStatus;
+let routeDistance;
+let routeDuration;
+
 // State
 let currentCapturedLocation = null;
+let routeUpdateInterval = null;
 
 /**
  * Initialize the application
@@ -40,6 +53,17 @@ async function initializeApp() {
     menuBtn = document.getElementById('menuBtn');
     sideMenu = document.getElementById('sideMenu');
 
+    // Route UI elements
+    startRouteBtn = document.getElementById('startRouteBtn');
+    routeControls = document.getElementById('routeControls');
+    pauseRouteBtn = document.getElementById('pauseRouteBtn');
+    resumeRouteBtn = document.getElementById('resumeRouteBtn');
+    saveRouteBtn = document.getElementById('saveRouteBtn');
+    cancelRouteBtn = document.getElementById('cancelRouteBtn');
+    recordingStatus = document.getElementById('recordingStatus');
+    routeDistance = document.getElementById('routeDistance');
+    routeDuration = document.getElementById('routeDuration');
+
     // Initialize map
     mapManager.initialize('map');
 
@@ -49,11 +73,16 @@ async function initializeApp() {
         
         // Initialize household manager
         householdManager = new HouseholdManager(mapManager, database);
-        window.householdManager = householdManager; // Make globally accessible
+        window.householdManager = householdManager;
+        
+        // Initialize route recorder
+        routeRecorder = new RouteRecorder(mapManager, database);
+        window.routeRecorder = routeRecorder;
         
         await householdManager.initialize();
+        await routeRecorder.loadAllRoutes();
         
-        console.log('Database and households initialized');
+        console.log('Database, households, and routes initialized');
     } catch (error) {
         console.error('Failed to initialize database:', error);
         alert('Failed to initialize database. Some features may not work.');
@@ -86,6 +115,11 @@ function setupGPSCallbacks() {
 
         // Store current location for household creation
         currentCapturedLocation = position;
+
+        // If recording route, add point
+        if (routeRecorder && routeRecorder.isRecording && !routeRecorder.isPaused) {
+            routeRecorder.addPoint(position.latitude, position.longitude);
+        }
 
         // Update UI
         updateGPSUI();
@@ -135,6 +169,13 @@ function setupEventListeners() {
     menuBtn.addEventListener('click', () => {
         sideMenu.classList.add('active');
     });
+
+    // Route recording buttons
+    startRouteBtn.addEventListener('click', handleStartRoute);
+    pauseRouteBtn.addEventListener('click', handlePauseRoute);
+    resumeRouteBtn.addEventListener('click', handleResumeRoute);
+    saveRouteBtn.addEventListener('click', handleSaveRoute);
+    cancelRouteBtn.addEventListener('click', handleCancelRoute);
 
     // Add household form
     document.getElementById('addHouseholdForm').addEventListener('submit', handleAddHousehold);
@@ -347,10 +388,15 @@ function updateGPSUI() {
         gpsAccuracy.textContent = gpsTracker.getFormattedAccuracy();
 
         // Enable Add Household button when GPS is active
-        addHouseholdBtn.disabled = false;
+        if (!routeRecorder || !routeRecorder.isRecording) {
+            addHouseholdBtn.disabled = false;
+        }
 
         // Enable search
         searchInput.disabled = false;
+
+        // Show start route button
+        updateStartRouteButton();
     }
 
     // Update coordinates display
@@ -531,6 +577,117 @@ window.addEventListener('DOMContentLoaded', () => {
     initializeApp();
     registerServiceWorker();
 });
+
+// ========== ROUTE RECORDING HANDLERS ==========
+
+/**
+ * Start route recording
+ */
+function handleStartRoute() {
+    if (!routeRecorder.startRecording()) {
+        return;
+    }
+
+    // Hide start button, show controls
+    startRouteBtn.classList.add('hidden');
+    routeControls.classList.remove('hidden');
+    addHouseholdBtn.disabled = true; // Disable while recording
+
+    // Start updating route stats
+    routeUpdateInterval = setInterval(updateRouteStats, 1000);
+
+    console.log('Route recording started');
+}
+
+/**
+ * Pause route recording
+ */
+function handlePauseRoute() {
+    routeRecorder.pauseRecording();
+    pauseRouteBtn.classList.add('hidden');
+    resumeRouteBtn.classList.remove('hidden');
+    recordingStatus.textContent = '⏸ PAUSED';
+}
+
+/**
+ * Resume route recording
+ */
+function handleResumeRoute() {
+    routeRecorder.resumeRecording();
+    resumeRouteBtn.classList.add('hidden');
+    pauseRouteBtn.classList.remove('hidden');
+    recordingStatus.textContent = '● RECORDING';
+}
+
+/**
+ * Save current route
+ */
+async function handleSaveRoute() {
+    try {
+        const routeName = prompt('Route name (optional):') || `Route ${Date.now()}`;
+        await routeRecorder.saveRoute(null, routeName);
+        
+        // Reset UI
+        routeControls.classList.add('hidden');
+        startRouteBtn.classList.remove('hidden');
+        addHouseholdBtn.disabled = false;
+        
+        if (routeUpdateInterval) {
+            clearInterval(routeUpdateInterval);
+            routeUpdateInterval = null;
+        }
+
+        alert('Route saved successfully!');
+    } catch (error) {
+        alert('Failed to save route: ' + error.message);
+    }
+}
+
+/**
+ * Cancel route recording
+ */
+function handleCancelRoute() {
+    if (!confirm('Cancel route recording? All progress will be lost.')) {
+        return;
+    }
+
+    routeRecorder.cancelRecording();
+    
+    // Reset UI
+    routeControls.classList.add('hidden');
+    startRouteBtn.classList.remove('hidden');
+    addHouseholdBtn.disabled = false;
+    
+    if (routeUpdateInterval) {
+        clearInterval(routeUpdateInterval);
+        routeUpdateInterval = null;
+    }
+}
+
+/**
+ * Update route statistics display
+ */
+function updateRouteStats() {
+    if (!routeRecorder.isRecording) {
+        return;
+    }
+
+    routeDistance.textContent = routeRecorder.getFormattedDistance();
+    routeDuration.textContent = routeRecorder.getFormattedDuration();
+}
+
+/**
+ * Show start route button when GPS is active and not recording
+ */
+function updateStartRouteButton() {
+    if (gpsTracker.getCurrentPosition() && !routeRecorder.isRecording) {
+        startRouteBtn.classList.remove('hidden');
+    } else {
+        startRouteBtn.classList.add('hidden');
+    }
+}
+
+// ========== END ROUTE HANDLERS ==========
 
 /**
  * Register service worker for PWA support
