@@ -115,9 +115,15 @@ class HouseholdManager {
             title: household.fullName
         });
 
-        // Bind popup
+        // Bind popup with options to keep it open
         const popupContent = this.createPopupContent(household);
-        marker.bindPopup(popupContent);
+        marker.bindPopup(popupContent, {
+            closeButton: true,
+            autoClose: false,  // Don't close when another popup opens
+            closeOnClick: false,  // Don't close when clicking on map
+            closeOnEscapeKey: true,  // Allow closing with ESC key
+            className: 'household-popup'
+        });
 
         // Add click handler
         marker.on('click', () => {
@@ -239,10 +245,16 @@ class HouseholdManager {
         // Fly to show both current location and household
         // (fitBounds is called inside drawRouteToHousehold)
         
-        // Open popup
+        // Open popup with small delay to ensure marker is visible
         const marker = this.markers.get(household.id);
         if (marker) {
-            marker.openPopup();
+            // Close any other open popups first
+            this.map.map.closePopup();
+            
+            // Open this marker's popup after map finishes moving
+            setTimeout(() => {
+                marker.openPopup();
+            }, 300);
         }
         
         console.log(`Selected: ${household.fullName} - ${distance}`);

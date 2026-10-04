@@ -120,9 +120,15 @@ class WaterMeterLocationManager {
             title: location.label
         });
 
-        // Bind popup
+        // Bind popup with options to keep it open
         const popupContent = await this.createPopupContent(location, meters);
-        marker.bindPopup(popupContent);
+        marker.bindPopup(popupContent, {
+            closeButton: true,
+            autoClose: false,
+            closeOnClick: false,
+            closeOnEscapeKey: true,
+            className: 'meter-location-popup'
+        });
 
         // Add click handler
         marker.on('click', () => {

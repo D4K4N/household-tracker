@@ -206,11 +206,41 @@ body {
 .leaflet-popup-content-wrapper {
     border-radius: 8px;
     padding: 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
 .leaflet-popup-content {
     margin: 12px;
     font-size: 14px;
+    min-width: 200px;
+}
+
+/* Make popup close button more visible and touchable */
+.leaflet-popup-close-button {
+    font-size: 24px !important;
+    padding: 8px 12px !important;
+    color: #666 !important;
+    font-weight: bold !important;
+}
+
+.leaflet-popup-close-button:hover {
+    color: #000 !important;
+    background: rgba(0,0,0,0.05) !important;
+}
+
+/* Ensure popup stays visible on mobile */
+.leaflet-popup {
+    margin-bottom: 60px; /* Space for bottom buttons */
+}
+
+/* Prevent popup from closing on touch */
+.leaflet-popup-content {
+    pointer-events: auto !important;
+}
+
+/* Make sure popup tip doesn't interfere */
+.leaflet-popup-tip-container {
+    pointer-events: none;
 }
 
 /* Current Location Marker Pulse Animation */

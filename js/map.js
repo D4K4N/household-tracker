@@ -66,27 +66,54 @@ class MapManager {
             tapTolerance: 15
         }).setView(this.diclumCenter, this.defaultZoom);
 
-        // Use OpenStreetMap tiles (simpler and caches better)
-        // Note: Map tiles require internet connection for first load
-        // Once cached by browser, they work offline in visited areas
-        this.tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        // Define base layers (Street Map and Satellite)
+        this.streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
             maxZoom: 19,
             minZoom: 3,
-            // Better caching for offline use
             crossOrigin: true
         });
         
-        this.tileLayer.addTo(this.map);
+        // Satellite imagery from Esri
+        this.satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri',
+            maxZoom: 19,
+            minZoom: 3,
+            crossOrigin: true
+        });
+        
+        // Add street layer by default
+        this.currentLayer = this.streetLayer;
+        this.streetLayer.addTo(this.map);
+        
+        // Store reference for layer control
+        this.baseLayers = {
+            'Street Map': this.streetLayer,
+            'Satellite': this.satelliteLayer
+        };
+        
+        // Add layer control (Map/Satellite toggle)
+        L.control.layers(this.baseLayers, null, {
+            position: 'topright'
+        }).addTo(this.map);
         
         // Detect when tiles fail to load (offline)
-        this.tileLayer.on('tileerror', (error) => {
+        this.streetLayer.on('tileerror', (error) => {
             console.log('Map tile load error (possibly offline):', error);
             this.showOfflineNotification();
         });
         
+        this.satelliteLayer.on('tileerror', (error) => {
+            console.log('Satellite tile load error (possibly offline):', error);
+            this.showOfflineNotification();
+        });
+        
         // Detect when tiles load successfully
-        this.tileLayer.on('load', () => {
+        this.streetLayer.on('load', () => {
+            this.hideOfflineNotification();
+        });
+        
+        this.satelliteLayer.on('load', () => {
             this.hideOfflineNotification();
         });
 
