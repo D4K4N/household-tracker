@@ -32,12 +32,52 @@ class WaterMeterLocationManager {
                 }
             });
             
-            this.map.getMap().addLayer(this.meterCluster);
+            // DON'T add to map by default - only show when user views water meters
+            // this.map.getMap().addLayer(this.meterCluster);
+            this.isVisible = false; // Track visibility state
 
             this.locations = await this.db.getAllWaterMeterLocations();
             await this.renderAllMarkers();
             
-            console.log(`Loaded ${this.locations.length} water meter locations with clustering`);
+            console.log(`Loaded ${this.locations.length} water meter locations (hidden by default)`);
+        } catch (error) {
+            console.error('Failed to load water meter locations:', error);
+        }
+    }
+
+    /**
+     * Show water meter locations on map
+     */
+    show() {
+        if (!this.isVisible && this.meterCluster) {
+            this.map.getMap().addLayer(this.meterCluster);
+            this.isVisible = true;
+            console.log('Water meter locations shown');
+        }
+    }
+
+    /**
+     * Hide water meter locations from map
+     */
+    hide() {
+        if (this.isVisible && this.meterCluster) {
+            this.map.getMap().removeLayer(this.meterCluster);
+            this.isVisible = false;
+            console.log('Water meter locations hidden');
+        }
+    }
+
+    /**
+     * Toggle visibility of water meter locations
+     */
+    toggle() {
+        if (this.isVisible) {
+            this.hide();
+        } else {
+            this.show();
+        }
+        return this.isVisible;
+    }
         } catch (error) {
             console.error('Failed to load water meter locations:', error);
         }

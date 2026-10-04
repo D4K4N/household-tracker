@@ -239,25 +239,21 @@ class HouseholdManager {
     selectHousehold(household) {
         this.selectedHousehold = household;
         
-        // Draw route line from current location to household
-        const distance = this.map.drawRouteToHousehold(household.latitude, household.longitude);
-        
-        // Fly to show both current location and household
-        // (fitBounds is called inside drawRouteToHousehold)
-        
-        // Open popup with small delay to ensure marker is visible
         const marker = this.markers.get(household.id);
-        if (marker) {
-            // Close any other open popups first
-            this.map.map.closePopup();
+        if (!marker) return;
+        
+        // First, make sure marker is visible (uncluster if needed)
+        this.markerCluster.zoomToShowLayer(marker, () => {
+            // After marker is visible, draw route
+            const distance = this.map.drawRouteToHousehold(household.latitude, household.longitude);
             
-            // Open this marker's popup after map finishes moving
+            // Wait for map animation to complete, then open popup
             setTimeout(() => {
                 marker.openPopup();
-            }, 300);
-        }
-        
-        console.log(`Selected: ${household.fullName} - ${distance}`);
+            }, 800); // Increased delay to ensure map finished moving
+            
+            console.log(`Selected: ${household.fullName} - ${distance}`);
+        });
     }
 
     /**

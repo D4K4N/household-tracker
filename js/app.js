@@ -491,6 +491,8 @@ function closeSideMenu() {
  * Show all households on map
  */
 function showAllHouseholds() {
+    // Hide water meter locations when viewing households
+    meterLocationManager.hide();
     householdManager.showAllHouseholds();
     closeSideMenu();
 }
@@ -802,6 +804,8 @@ async function handleAddMeterLocation(e) {
  * Show all meter locations on map
  */
 function showAllMeterLocations() {
+    // Show water meter locations
+    meterLocationManager.show();
     meterLocationManager.showAllLocations();
     closeSideMenu();
 }
@@ -1008,6 +1012,9 @@ async function handleAddWaterMeter(e) {
  * Show all water meters list
  */
 async function showAllWaterMeters() {
+    // Show water meter locations when viewing meters
+    meterLocationManager.show();
+    
     try {
         const metersWithDetails = await waterMeterManager.getAllMetersWithDetails();
         const listContainer = document.getElementById('waterMetersList');
