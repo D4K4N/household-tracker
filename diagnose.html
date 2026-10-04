@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostic Check</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <style>
+        body { 
+            font-family: monospace; 
+            padding: 20px; 
+            background: #1e1e1e; 
+            color: #00ff00; 
+        }
+        .error { color: #ff4444; }
+        .success { color: #44ff44; }
+        .warning { color: #ffaa00; }
+        #map { 
+            width: 100%; 
+            height: 400px; 
+            margin: 20px 0; 
+            border: 2px solid #444; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Household Tracker Diagnostics</h1>
+    <div id="output"></div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            output.appendChild(div);
+            console.log(msg);
+        }
+
+        function test() {
+            log('=== STARTING DIAGNOSTICS ===', 'warning');
+            
+            // Test 1: Leaflet loaded
+            if (typeof L !== 'undefined') {
+                log('✓ Leaflet library loaded (version: ' + L.version + ')', 'success');
+            } else {
+                log('✗ Leaflet library NOT loaded', 'error');
+                return;
+            }
+
+            // Test 2: IndexedDB
+            if ('indexedDB' in window) {
+                log('✓ IndexedDB supported', 'success');
+            } else {
+                log('✗ IndexedDB NOT supported', 'error');
+            }
+
+            // Test 3: Geolocation
+            if ('geolocation' in navigator) {
+                log('✓ Geolocation API supported', 'success');
+            } else {
+                log('✗ Geolocation API NOT supported', 'error');
+            }
+
+            // Test 4: Service Worker
+            if ('serviceWorker' in navigator) {
+                log('✓ Service Worker supported', 'success');
+            } else {
+                log('✗ Service Worker NOT supported', 'error');
+            }
+
+            // Test 5: Create Map
+            try {
+                log('Attempting to create Leaflet map...', 'warning');
+                const map = L.map('map').setView([8.3676, 124.8591], 13);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap'
+                }).addTo(map);
+
+                log('✓ Map created successfully!', 'success');
+                
+                // Add test marker
+                L.marker([8.3676, 124.8591])
+                    .addTo(map)
+                    .bindPopup('Test marker - Diclum center');
+                
+                log('✓ Marker added successfully!', 'success');
+            } catch (e) {
+                log('✗ Map creation failed: ' + e.message, 'error');
+            }
+
+            // Test 6: Load our scripts
+            log('=== LOADING PROJECT SCRIPTS ===', 'warning');
+            
+            const scripts = ['js/gps.js', 'js/map.js', 'js/database.js'];
+            let loaded = 0;
+            
+            scripts.forEach(src => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => {
+                    loaded++;
+                    log(`✓ Loaded: ${src}`, 'success');
+                    
+                    if (loaded === scripts.length) {
+                        testClasses();
+                    }
+                };
+                script.onerror = () => {
+                    log(`✗ Failed to load: ${src}`, 'error');
+                };
+                document.body.appendChild(script);
+            });
+        }
+
+        function testClasses() {
+            log('=== TESTING CLASS INSTANTIATION ===', 'warning');
+            
+            // Test GPSTracker
+            try {
+                if (typeof GPSTracker !== 'undefined') {
+                    const gps = new GPSTracker();
+                    log('✓ GPSTracker class works', 'success');
+                } else {
+                    log('✗ GPSTracker class not defined', 'error');
+                }
+            } catch (e) {
+                log('✗ GPSTracker error: ' + e.message, 'error');
+            }
+
+            // Test MapManager
+            try {
+                if (typeof MapManager !== 'undefined') {
+                    const mapMgr = new MapManager();
+                    log('✓ MapManager class works', 'success');
+                } else {
+                    log('✗ MapManager class not defined', 'error');
+                }
+            } catch (e) {
+                log('✗ MapManager error: ' + e.message, 'error');
+            }
+
+            // Test HouseholdDatabase
+            try {
+                if (typeof HouseholdDatabase !== 'undefined') {
+                    const db = new HouseholdDatabase();
+                    log('✓ HouseholdDatabase class works', 'success');
+                    
+                    // Try to init database
+                    db.init().then(() => {
+                        log('✓ Database initialized successfully!', 'success');
+                        log('=== ALL TESTS PASSED ===', 'success');
+                    }).catch(err => {
+                        log('✗ Database init failed: ' + err.message, 'error');
+                    });
+                } else {
+                    log('✗ HouseholdDatabase class not defined', 'error');
+                }
+            } catch (e) {
+                log('✗ HouseholdDatabase error: ' + e.message, 'error');
+            }
+        }
+
+        // Capture any global errors
+        window.onerror = function(msg, url, line, col, error) {
+            log(`✗ GLOBAL ERROR: ${msg} at ${url}:${line}:${col}`, 'error');
+            if (error) log('Stack: ' + error.stack, 'error');
+            return false;
+        };
+
+        // Start tests when page loads
+        window.onload = test;
+    </script>
+</body>
+</html>

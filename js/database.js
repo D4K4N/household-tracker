@@ -1064,9 +1064,6 @@ class HouseholdDatabase {
             return null;
         }
     }
-}
-
-
 
     // ========== ROUTE METHODS ==========
 
@@ -1210,3 +1207,4 @@ class HouseholdDatabase {
             route.destinationHouseholdId === householdId
         );
     }
+}
