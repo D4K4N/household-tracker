@@ -78,10 +78,6 @@ class WaterMeterLocationManager {
         }
         return this.isVisible;
     }
-        } catch (error) {
-            console.error('Failed to load water meter locations:', error);
-        }
-    }
 
     /**
      * Add new water meter location
