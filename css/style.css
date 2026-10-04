@@ -861,3 +861,882 @@ body {
         min-width: calc(50% - 4px);
     }
 }
+
+/* ============================================
+   WATER METER LOCATION STYLES
+   ============================================ */
+
+/* Multiple action buttons */
+.bottom-action {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.action-btn-secondary {
+    background: linear-gradient(135deg, #00ACC1 0%, #00897B 100%);
+}
+
+.action-btn-secondary:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 8px rgba(0, 172, 193, 0.4);
+}
+
+/* Menu sections */
+.menu-section {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.menu-section:last-child {
+    border-bottom: none;
+}
+
+.menu-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 10px;
+    padding-left: 16px;
+    letter-spacing: 0.5px;
+}
+
+/* Alert boxes */
+.alert {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.alert-info {
+    background: #E3F2FD;
+    color: #1565C0;
+    border-left: 4px solid #2196F3;
+}
+
+.alert-warning {
+    background: #FFF3E0;
+    color: #E65100;
+    border-left: 4px solid #FF9800;
+}
+
+.alert-success {
+    background: #E8F5E9;
+    color: #2E7D32;
+    border-left: 4px solid #4CAF50;
+}
+
+/* Database Statistics */
+.stats-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.stat-item {
+    background: #f5f5f5;
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #2196F3;
+}
+
+/* Meter location marker styling */
+.meter-location-marker {
+    background: #00ACC1;
+    border: 3px solid white;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.meter-location-marker.has-meters::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    background: #FF5722;
+    border: 2px solid white;
+    border-radius: 50%;
+}
+
+/* Meter location list items */
+.meter-location-item {
+    background: white;
+    padding: 16px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.meter-location-item:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+.meter-location-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.meter-location-item-title {
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
+}
+
+.meter-location-item-badge {
+    background: #00ACC1;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.meter-location-item-details {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.6;
+}
+
+/* Empty state */
+.no-results {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+    font-size: 15px;
+}
+
+.no-results::before {
+    content: '📭';
+    display: block;
+    font-size: 48px;
+    margin-bottom: 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .stats-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================
+   WATER METER STYLES
+   ============================================ */
+
+/* Search box in modals */
+.search-box {
+    margin-bottom: 16px;
+}
+
+.search-box .search-input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    outline: none;
+}
+
+.search-box .search-input:focus {
+    border-color: #2196F3;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+/* Water meter list items */
+.water-meter-item {
+    background: white;
+    padding: 16px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 4px solid #2196F3;
+}
+
+.water-meter-item:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+.water-meter-item.status-inactive {
+    border-left-color: #757575;
+    opacity: 0.8;
+}
+
+.water-meter-item.status-disconnected {
+    border-left-color: #F44336;
+}
+
+.water-meter-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.water-meter-item-title {
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
+    flex: 1;
+}
+
+.water-meter-item-status {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    background: #E8F5E9;
+    color: #2E7D32;
+    white-space: nowrap;
+}
+
+.water-meter-item-status.inactive {
+    background: #F5F5F5;
+    color: #757575;
+}
+
+.water-meter-item-status.disconnected {
+    background: #FFEBEE;
+    color: #C62828;
+}
+
+.water-meter-item-details {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.8;
+}
+
+.water-meter-item-details div {
+    margin-bottom: 4px;
+}
+
+.water-meter-item-meta {
+    font-size: 12px;
+    color: #999;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f0f0f0;
+}
+
+/* Water meter detail view */
+.meter-detail-section {
+    margin-bottom: 24px;
+}
+
+.meter-detail-section h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.meter-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    background: #f8f8f8;
+    padding: 16px;
+    border-radius: 8px;
+}
+
+.meter-detail-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.meter-detail-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.meter-detail-value {
+    font-size: 15px;
+    font-weight: 500;
+    color: #333;
+}
+
+.meter-detail-value.large {
+    font-size: 24px;
+    color: #2196F3;
+}
+
+.meter-detail-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.meter-detail-actions button {
+    flex: 1;
+}
+
+/* Meter badges */
+.meter-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.meter-badge.active {
+    background: #E8F5E9;
+    color: #2E7D32;
+}
+
+.meter-badge.inactive {
+    background: #F5F5F5;
+    color: #757575;
+}
+
+.meter-badge.disconnected {
+    background: #FFEBEE;
+    color: #C62828;
+}
+
+/* Meter filter tabs */
+.meter-filter-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 8px;
+}
+
+.meter-filter-tab {
+    padding: 8px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -10px;
+    transition: all 0.2s;
+}
+
+.meter-filter-tab:hover {
+    color: #2196F3;
+}
+
+.meter-filter-tab.active {
+    color: #2196F3;
+    border-bottom-color: #2196F3;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .meter-detail-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .meter-detail-actions {
+        flex-direction: column;
+    }
+}
+
+/* ============================================
+   METER READING STYLES
+   ============================================ */
+
+/* Reading step container */
+.reading-step {
+    padding: 8px;
+}
+
+/* Reading info card */
+.reading-info-card {
+    background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.reading-info-card h3 {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    opacity: 0.9;
+}
+
+.reading-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.reading-info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.reading-label {
+    font-size: 12px;
+    opacity: 0.8;
+    margin-bottom: 4px;
+}
+
+.reading-value {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* Previous reading card */
+.reading-previous-card {
+    background: #F5F5F5;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 24px;
+    border: 2px solid #E0E0E0;
+}
+
+.reading-previous-card h3 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.reading-previous-value {
+    font-size: 48px;
+    font-weight: bold;
+    color: #2196F3;
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+.reading-previous-date {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.reading-previous-days {
+    font-size: 12px;
+    color: #999;
+}
+
+/* Current reading input */
+.reading-input-label {
+    font-size: 16px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.reading-input-large {
+    width: 100%;
+    padding: 16px;
+    font-size: 32px;
+    text-align: center;
+    border: 3px solid #2196F3;
+    border-radius: 8px;
+    font-weight: bold;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.reading-input-large:focus {
+    border-color: #1976D2;
+    box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.1);
+}
+
+.reading-input-large::placeholder {
+    font-size: 16px;
+    font-weight: normal;
+    color: #999;
+}
+
+/* Usage display */
+.usage-display {
+    background: #E8F5E9;
+    border: 2px solid #4CAF50;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.usage-label {
+    font-size: 14px;
+    color: #2E7D32;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.usage-value {
+    font-size: 42px;
+    font-weight: bold;
+    color: #2E7D32;
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+.usage-info {
+    font-size: 13px;
+    color: #558B2F;
+}
+
+.usage-display.zero-usage {
+    background: #FFF3E0;
+    border-color: #FF9800;
+}
+
+.usage-display.zero-usage .usage-label,
+.usage-display.zero-usage .usage-value,
+.usage-display.zero-usage .usage-info {
+    color: #E65100;
+}
+
+.usage-display.high-usage {
+    background: #FFEBEE;
+    border-color: #F44336;
+}
+
+.usage-display.high-usage .usage-label,
+.usage-display.high-usage .usage-value,
+.usage-display.high-usage .usage-info {
+    color: #C62828;
+}
+
+/* Reading buttons */
+#calculateUsageBtn {
+    min-width: 150px;
+}
+
+#proceedToBillingBtn {
+    min-width: 150px;
+    background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+}
+
+#proceedToBillingBtn:hover {
+    background: linear-gradient(135deg, #388E3C 0%, #2E7D32 100%);
+}
+
+/* Validation messages */
+.reading-validation-error {
+    background: #FFEBEE;
+    border-left: 4px solid #F44336;
+    padding: 12px;
+    margin: 16px 0;
+    border-radius: 4px;
+    color: #C62828;
+    font-size: 14px;
+}
+
+.reading-validation-warning {
+    background: #FFF3E0;
+    border-left: 4px solid #FF9800;
+    padding: 12px;
+    margin: 16px 0;
+    border-radius: 4px;
+    color: #E65100;
+    font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .reading-info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .reading-previous-value {
+        font-size: 40px;
+    }
+    
+    .reading-input-large {
+        font-size: 28px;
+    }
+    
+    .usage-value {
+        font-size: 36px;
+    }
+}
+
+/* ============================================
+   BILLING REVIEW STYLES
+   ============================================ */
+
+/* Bill sections */
+.bill-section {
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.bill-section:last-child {
+    border-bottom: none;
+}
+
+.bill-section h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Account info grid */
+.bill-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    background: #f8f8f8;
+    padding: 16px;
+    border-radius: 8px;
+}
+
+.bill-info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.bill-info-item-full {
+    grid-column: 1 / -1;
+}
+
+.bill-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.bill-value {
+    font-size: 15px;
+    font-weight: 500;
+    color: #333;
+}
+
+/* Meter readings display */
+.bill-readings-grid {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 12px;
+    background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.bill-reading-item {
+    flex: 1;
+    text-align: center;
+}
+
+.bill-reading-usage {
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.bill-reading-label {
+    font-size: 12px;
+    color: #1565C0;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.bill-reading-value {
+    font-size: 32px;
+    font-weight: bold;
+    color: #0D47A1;
+    line-height: 1;
+}
+
+.bill-reading-unit {
+    font-size: 14px;
+    color: #1976D2;
+    margin-top: 4px;
+}
+
+.bill-reading-arrow {
+    font-size: 24px;
+    color: #1976D2;
+    font-weight: bold;
+}
+
+/* Charge breakdown */
+.bill-charges {
+    background: #f8f8f8;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.bill-charge-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.bill-charge-item:last-child {
+    border-bottom: none;
+}
+
+.bill-charge-label {
+    font-size: 14px;
+    color: #666;
+}
+
+.bill-charge-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.bill-charge-subtotal {
+    background: #fff;
+    border-top: 2px solid #ddd;
+    border-bottom: 2px solid #ddd;
+}
+
+.bill-charge-subtotal .bill-charge-label {
+    font-weight: 600;
+    color: #333;
+}
+
+.bill-charge-arrears {
+    background: #FFF3E0;
+}
+
+.bill-charge-arrears .bill-charge-label,
+.bill-charge-arrears .bill-charge-value {
+    color: #E65100;
+}
+
+.bill-charge-total {
+    background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+    padding: 16px;
+}
+
+.bill-charge-total .bill-charge-label {
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    letter-spacing: 0.5px;
+}
+
+.bill-charge-total .bill-charge-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: white;
+}
+
+/* Payment info */
+.bill-payment-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.bill-payment-item {
+    background: #E8F5E9;
+    border: 2px solid #4CAF50;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+}
+
+.bill-payment-warning {
+    background: #FFEBEE;
+    border-color: #F44336;
+}
+
+.bill-payment-label {
+    font-size: 12px;
+    color: #2E7D32;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.bill-payment-warning .bill-payment-label {
+    color: #C62828;
+}
+
+.bill-payment-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #1B5E20;
+    margin-bottom: 4px;
+}
+
+.bill-payment-warning .bill-payment-value {
+    color: #B71C1C;
+}
+
+.bill-payment-days {
+    font-size: 13px;
+    color: #4CAF50;
+}
+
+.bill-payment-warning .bill-payment-days,
+.bill-payment-note {
+    font-size: 12px;
+    color: #999;
+}
+
+.bill-payment-days.overdue {
+    color: #F44336;
+    font-weight: bold;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .bill-info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .bill-readings-grid {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .bill-reading-arrow {
+        transform: rotate(90deg);
+    }
+    
+    .bill-payment-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -57,10 +57,13 @@
             <div id="gpsCoordinates" class="coordinates-text"></div>
         </div>
 
-        <!-- Bottom Action Button -->
+        <!-- Bottom Action Buttons -->
         <div class="bottom-action">
             <button id="addHouseholdBtn" class="action-btn" disabled>
-                + ADD HOUSEHOLD
+                🏠 ADD HOUSEHOLD
+            </button>
+            <button id="addMeterLocationBtn" class="action-btn action-btn-secondary" disabled>
+                📍 ADD METER LOCATION
             </button>
         </div>
 
@@ -201,6 +204,45 @@
             </div>
         </div>
 
+        <!-- Add Water Meter Location Modal -->
+        <div id="addMeterLocationModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add Water Meter Location</h2>
+                    <button class="close-btn" onclick="closeAddMeterLocationModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="addMeterLocationForm">
+                        <div class="alert alert-info">
+                            📍 This marks the physical location where water meters are installed. Multiple meters can be grouped at one location.
+                        </div>
+
+                        <div class="form-group">
+                            <label>Location Label <span class="required">*</span></label>
+                            <input type="text" id="meterLocationLabel" name="label" required placeholder="e.g., Roadside Meter Bank, House #5 Meter Area">
+                            <small>A descriptive name for this meter location</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Notes</label>
+                            <textarea id="meterLocationNotes" name="notes" rows="3" placeholder="Additional information about this location..."></textarea>
+                        </div>
+
+                        <div class="location-info">
+                            <p><strong>📍 Current GPS Location:</strong></p>
+                            <p id="meterLocationCaptured">Latitude: ---, Longitude: ---</p>
+                            <p id="meterLocationAccuracy">Accuracy: ---</p>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn-secondary" onclick="closeAddMeterLocationModal()">Cancel</button>
+                            <button type="submit" class="btn-primary">📍 Save Meter Location</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <!-- Search Results Dropdown -->
         <div id="searchResults" class="search-results"></div>
 
@@ -214,21 +256,50 @@
                 <button class="close-btn" onclick="closeSideMenu()">&times;</button>
             </div>
             <div class="menu-content">
-                <button class="menu-item" onclick="showAllHouseholds()">
-                    📍 Show All Households
-                </button>
-                <button class="menu-item" onclick="showHouseholdsList()">
-                    📋 Household List
-                </button>
-                <button class="menu-item" onclick="exportData()">
-                    💾 Export Data
-                </button>
-                <button class="menu-item" onclick="importData()">
-                    📥 Import Data
-                </button>
-                <button class="menu-item" onclick="showAbout()">
-                    ℹ️ About
-                </button>
+                <div class="menu-section">
+                    <div class="menu-section-title">HOUSEHOLDS</div>
+                    <button class="menu-item" onclick="showAllHouseholds()">
+                        📍 Show All Households
+                    </button>
+                    <button class="menu-item" onclick="showHouseholdsList()">
+                        📋 Household List
+                    </button>
+                </div>
+
+                <div class="menu-section">
+                    <div class="menu-section-title">WATER METERS</div>
+                    <button class="menu-item" onclick="openAddWaterMeterModal()">
+                        ➕ Add Water Meter
+                    </button>
+                    <button class="menu-item" onclick="showAllMeterLocations()">
+                        📍 Show All Meter Locations
+                    </button>
+                    <button class="menu-item" onclick="showMeterLocationsList()">
+                        📋 Meter Locations List
+                    </button>
+                    <button class="menu-item" onclick="showAllWaterMeters()">
+                        💧 All Water Meters
+                    </button>
+                </div>
+
+                <div class="menu-section">
+                    <div class="menu-section-title">DATA</div>
+                    <button class="menu-item" onclick="showDatabaseStats()">
+                        📊 Database Statistics
+                    </button>
+                    <button class="menu-item" onclick="exportData()">
+                        💾 Export Backup
+                    </button>
+                    <button class="menu-item" onclick="importData()">
+                        📥 Import Backup
+                    </button>
+                </div>
+
+                <div class="menu-section">
+                    <button class="menu-item" onclick="showAbout()">
+                        ℹ️ About
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -241,6 +312,348 @@
                 </div>
                 <div class="modal-body">
                     <div id="householdsList" class="households-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Water Meter Modal -->
+    <div id="addWaterMeterModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Water Meter</h2>
+                <button class="close-btn" onclick="closeAddWaterMeterModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addWaterMeterForm">
+                    <div class="alert alert-info">
+                        💧 Add an individual water meter. Link it to a household and optionally to a physical meter location.
+                    </div>
+
+                    <div class="form-group">
+                        <label>Meter Number <span class="required">*</span></label>
+                        <input type="text" id="waterMeterNumber" name="meterNumber" required placeholder="e.g., WM-001, 12345">
+                        <small>Unique identifier for this meter</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Owner / Account Name <span class="required">*</span></label>
+                        <input type="text" id="waterMeterOwner" name="ownerName" required placeholder="e.g., Juan Dela Cruz">
+                        <small>Who is responsible for this meter</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Link to Household <span class="required">*</span></label>
+                        <select id="waterMeterHousehold" name="householdId" required>
+                            <option value="">-- Select Household --</option>
+                        </select>
+                        <small>Which household does this meter serve</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Physical Meter Location (Optional)</label>
+                        <select id="waterMeterLocation" name="waterMeterLocationId">
+                            <option value="">-- No grouped location --</option>
+                        </select>
+                        <small>If this meter is grouped with others at a physical location</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Status <span class="required">*</span></label>
+                        <select id="waterMeterStatus" name="status" required>
+                            <option value="active">🟢 Active</option>
+                            <option value="inactive">⚫ Inactive</option>
+                            <option value="disconnected">🔴 Disconnected</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea id="waterMeterNotes" name="notes" rows="3" placeholder="Additional information about this meter..."></textarea>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeAddWaterMeterModal()">Cancel</button>
+                        <button type="submit" class="btn-primary">💧 Add Water Meter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Water Meters List Modal -->
+    <div id="waterMetersListModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>All Water Meters</h2>
+                <button class="close-btn" onclick="closeWaterMetersListModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-box">
+                    <input type="text" id="meterSearchInput" placeholder="Search by owner, meter number..." class="search-input">
+                </div>
+                <div id="waterMetersList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meter Reading Modal -->
+    <div id="meterReadingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📊 Meter Reading</h2>
+                <button class="close-btn" onclick="closeMeterReadingModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="meterReadingContent">
+                    <!-- Step 1: Meter Info -->
+                    <div id="readingStep1" class="reading-step">
+                        <div class="reading-info-card">
+                            <h3>Meter Information</h3>
+                            <div class="reading-info-grid">
+                                <div class="reading-info-item">
+                                    <span class="reading-label">Meter Number:</span>
+                                    <span class="reading-value" id="readingMeterNumber">-</span>
+                                </div>
+                                <div class="reading-info-item">
+                                    <span class="reading-label">Owner:</span>
+                                    <span class="reading-value" id="readingOwner">-</span>
+                                </div>
+                                <div class="reading-info-item">
+                                    <span class="reading-label">Address:</span>
+                                    <span class="reading-value" id="readingAddress">-</span>
+                                </div>
+                                <div class="reading-info-item">
+                                    <span class="reading-label">Billing Period:</span>
+                                    <span class="reading-value" id="readingPeriod">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="reading-previous-card">
+                            <h3>Previous Reading</h3>
+                            <div class="reading-previous-value" id="readingPrevious">0</div>
+                            <div class="reading-previous-date" id="readingPreviousDate">First reading</div>
+                            <div class="reading-previous-days" id="readingDaysSince"></div>
+                        </div>
+
+                        <form id="meterReadingForm">
+                            <div class="form-group">
+                                <label class="reading-input-label">Current Reading <span class="required">*</span></label>
+                                <input 
+                                    type="number" 
+                                    id="currentReadingInput" 
+                                    name="currentReading" 
+                                    step="0.01" 
+                                    min="0"
+                                    required 
+                                    placeholder="Enter current meter reading"
+                                    class="reading-input-large"
+                                    autofocus
+                                >
+                                <small>Enter the reading shown on the water meter</small>
+                            </div>
+
+                            <div id="usageDisplay" class="usage-display hidden">
+                                <div class="usage-label">Calculated Usage</div>
+                                <div class="usage-value" id="usageValue">0 m³</div>
+                                <div class="usage-info">
+                                    <span id="usageAvgDaily"></span>
+                                </div>
+                            </div>
+
+                            <div id="readingWarning" class="alert alert-warning hidden"></div>
+                            <div id="readingSuspicious" class="alert alert-warning hidden"></div>
+
+                            <div class="modal-actions">
+                                <button type="button" class="btn-secondary" onclick="closeMeterReadingModal()">Cancel</button>
+                                <button type="button" id="calculateUsageBtn" class="btn-primary" onclick="calculateUsage()">Calculate Usage</button>
+                                <button type="button" id="proceedToBillingBtn" class="btn-primary hidden" onclick="proceedToBilling()">Proceed to Billing →</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Water Meter Detail Modal -->
+    <div id="waterMeterDetailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Water Meter Details</h2>
+                <button class="close-btn" onclick="closeWaterMeterDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="waterMeterDetailContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meter Locations List Modal -->
+    <div id="meterLocationsListModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Water Meter Locations</h2>
+                <button class="close-btn" onclick="closeMeterLocationsListModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="meterLocationsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Billing Review Modal -->
+    <div id="billingReviewModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>💰 Bill Summary</h2>
+                <button class="close-btn" onclick="closeBillingReviewModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="billingReviewContent">
+                    <!-- Customer Info -->
+                    <div class="bill-section">
+                        <h3>Account Information</h3>
+                        <div class="bill-info-grid">
+                            <div class="bill-info-item">
+                                <span class="bill-label">Account Name:</span>
+                                <span class="bill-value" id="billAccountName">-</span>
+                            </div>
+                            <div class="bill-info-item">
+                                <span class="bill-label">Meter Number:</span>
+                                <span class="bill-value" id="billMeterNumber">-</span>
+                            </div>
+                            <div class="bill-info-item bill-info-item-full">
+                                <span class="bill-label">Address:</span>
+                                <span class="bill-value" id="billAddress">-</span>
+                            </div>
+                            <div class="bill-info-item">
+                                <span class="bill-label">Billing Period:</span>
+                                <span class="bill-value" id="billPeriod">-</span>
+                            </div>
+                            <div class="bill-info-item">
+                                <span class="bill-label">Reading Date:</span>
+                                <span class="bill-value" id="billReadingDate">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Meter Readings -->
+                    <div class="bill-section">
+                        <h3>Meter Readings</h3>
+                        <div class="bill-readings-grid">
+                            <div class="bill-reading-item">
+                                <div class="bill-reading-label">Previous</div>
+                                <div class="bill-reading-value" id="billPreviousReading">0</div>
+                                <div class="bill-reading-unit">m³</div>
+                            </div>
+                            <div class="bill-reading-arrow">→</div>
+                            <div class="bill-reading-item">
+                                <div class="bill-reading-label">Current</div>
+                                <div class="bill-reading-value" id="billCurrentReading">0</div>
+                                <div class="bill-reading-unit">m³</div>
+                            </div>
+                            <div class="bill-reading-arrow">=</div>
+                            <div class="bill-reading-item bill-reading-usage">
+                                <div class="bill-reading-label">Usage</div>
+                                <div class="bill-reading-value" id="billUsage">0</div>
+                                <div class="bill-reading-unit">m³</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charge Breakdown -->
+                    <div class="bill-section">
+                        <h3>Charges</h3>
+                        <div class="bill-charges">
+                            <div class="bill-charge-item">
+                                <span class="bill-charge-label">Minimum Charge</span>
+                                <span class="bill-charge-value" id="billMinimumCharge">₱0.00</span>
+                            </div>
+                            <div class="bill-charge-item">
+                                <span class="bill-charge-label" id="billUsageChargeLabel">Usage Charge</span>
+                                <span class="bill-charge-value" id="billUsageCharge">₱0.00</span>
+                            </div>
+                            <div class="bill-charge-item bill-charge-subtotal">
+                                <span class="bill-charge-label">Current Bill</span>
+                                <span class="bill-charge-value" id="billCurrentAmount">₱0.00</span>
+                            </div>
+                            <div class="bill-charge-item bill-charge-arrears">
+                                <span class="bill-charge-label">Previous Balance</span>
+                                <span class="bill-charge-value" id="billArrears">₱0.00</span>
+                            </div>
+                            <div class="bill-charge-item bill-charge-total">
+                                <span class="bill-charge-label">TOTAL AMOUNT DUE</span>
+                                <span class="bill-charge-value" id="billTotalDue">₱0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Info -->
+                    <div class="bill-section">
+                        <h3>Payment Information</h3>
+                        <div class="bill-payment-grid">
+                            <div class="bill-payment-item">
+                                <div class="bill-payment-label">Due Date</div>
+                                <div class="bill-payment-value" id="billDueDate">-</div>
+                                <div class="bill-payment-days" id="billDaysUntilDue"></div>
+                            </div>
+                            <div class="bill-payment-item bill-payment-warning">
+                                <div class="bill-payment-label">Disconnection Date</div>
+                                <div class="bill-payment-value" id="billDisconnectionDate">-</div>
+                                <div class="bill-payment-note">If unpaid</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeBillingReviewModal()">Cancel</button>
+                        <button type="button" class="btn-primary" onclick="confirmAndSaveBill()">✓ Save Bill</button>
+                        <button type="button" class="btn-primary hidden" id="printBillBtn" onclick="printBill()">🖨️ Print Bill</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Statistics Modal -->
+    <div id="databaseStatsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Database Statistics</h2>
+                <button class="close-btn" onclick="closeDatabaseStatsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="databaseStatsContent" class="stats-container">
+                    <div class="stat-item">
+                        <div class="stat-label">Households</div>
+                        <div class="stat-value" id="statHouseholds">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Meter Locations</div>
+                        <div class="stat-value" id="statLocations">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Water Meters</div>
+                        <div class="stat-value" id="statMeters">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Billing Records</div>
+                        <div class="stat-value" id="statBilling">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Routes</div>
+                        <div class="stat-value" id="statRoutes">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Database Version</div>
+                        <div class="stat-value" id="statVersion">-</div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-primary" onclick="closeDatabaseStatsModal()">Close</button>
                 </div>
             </div>
         </div>
@@ -259,6 +672,11 @@
     <script src="js/map.js"></script>
     <script src="js/database.js"></script>
     <script src="js/households.js"></script>
+    <script src="js/waterMeterLocations.js"></script>
+    <script src="js/waterMeters.js"></script>
+    <script src="js/meterReading.js"></script>
+    <script src="js/billing.js"></script>
+    <script src="js/printer.js"></script>
     <script src="js/routes.js"></script>
     <script src="js/app.js"></script>
 </body>
