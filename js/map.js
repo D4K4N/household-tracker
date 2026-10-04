@@ -12,6 +12,7 @@ class MapManager {
         this.gpsPath = null; // Track GPS path
         this.pathCoordinates = []; // Store GPS coordinates for path
         this.routeLine = null; // Line to selected household
+        this.offlineNotificationShown = false; // Track offline notification
         
         // Barangay Diclum center coordinates
         this.diclumCenter = [8.3676, 124.8591];
@@ -66,11 +67,28 @@ class MapManager {
         }).setView(this.diclumCenter, this.defaultZoom);
 
         // Use OpenStreetMap tiles (simpler and caches better)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // Note: Map tiles require internet connection for first load
+        // Once cached by browser, they work offline in visited areas
+        this.tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 19,
-            minZoom: 3
-        }).addTo(this.map);
+            minZoom: 3,
+            // Better caching for offline use
+            crossOrigin: true
+        });
+        
+        this.tileLayer.addTo(this.map);
+        
+        // Detect when tiles fail to load (offline)
+        this.tileLayer.on('tileerror', (error) => {
+            console.log('Map tile load error (possibly offline):', error);
+            this.showOfflineNotification();
+        });
+        
+        // Detect when tiles load successfully
+        this.tileLayer.on('load', () => {
+            this.hideOfflineNotification();
+        });
 
         // Add zoom control to bottom right
         L.control.zoom({
@@ -279,4 +297,52 @@ class MapManager {
         }
         return null;
     }
+
+    /**
+     * Show offline map notification
+     */
+    showOfflineNotification() {
+        if (this.offlineNotificationShown) return;
+        
+        this.offlineNotificationShown = true;
+        
+        // Create notification element if it doesn't exist
+        if (!document.getElementById('mapOfflineNotice')) {
+            const notice = document.createElement('div');
+            notice.id = 'mapOfflineNotice';
+            notice.style.cssText = `
+                position: fixed;
+                top: 60px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(255, 152, 0, 0.95);
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                z-index: 10000;
+                font-size: 14px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                max-width: 90%;
+                text-align: center;
+            `;
+            notice.innerHTML = `
+                <strong>📡 Map Offline Mode</strong><br>
+                <small>Map tiles unavailable. GPS and all features still work!<br>
+                Connect to internet once to cache map tiles for this area.</small>
+            `;
+            document.body.appendChild(notice);
+        }
+    }
+
+    /**
+     * Hide offline map notification
+     */
+    hideOfflineNotification() {
+        const notice = document.getElementById('mapOfflineNotice');
+        if (notice) {
+            notice.remove();
+            this.offlineNotificationShown = false;
+        }
+    }
 }
+

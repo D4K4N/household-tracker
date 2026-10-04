@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Household Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .test-result { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .pass { background: #d4edda; color: #155724; }
+        .fail { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        #console-log { background: white; padding: 10px; border: 1px solid #ddd; 
+                       max-height: 300px; overflow-y: auto; font-family: monospace; 
+                       font-size: 12px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Household Tracker - Quick Test</h1>
+    <div id="results"></div>
+    <h3>Console Log:</h3>
+    <div id="console-log"></div>
+
+    <script>
+        const results = document.getElementById('results');
+        const consoleLog = document.getElementById('console-log');
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.textContent = message;
+            results.appendChild(div);
+        }
+
+        function logConsole(message) {
+            const div = document.createElement('div');
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleLog.appendChild(div);
+            consoleLog.scrollTop = consoleLog.scrollHeight;
+        }
+
+        // Capture console logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        console.log = function(...args) {
+            logConsole('LOG: ' + args.join(' '));
+            originalLog.apply(console, args);
+        };
+        console.error = function(...args) {
+            logConsole('ERROR: ' + args.join(' '));
+            originalError.apply(console, args);
+        };
+
+        // Test 1: Check if files exist
+        addResult('Test 1: Loading JavaScript files...', 'info');
+
+        // Load scripts dynamically and test
+        const scripts = [
+            'js/gps.js',
+            'js/map.js',
+            'js/database.js',
+            'js/households.js',
+            'js/waterMeterLocations.js',
+            'js/waterMeters.js',
+            'js/meterReading.js',
+            'js/billing.js',
+            'js/printer.js',
+            'js/routes.js'
+        ];
+
+        let loadedScripts = 0;
+        let errors = 0;
+
+        scripts.forEach(src => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = () => {
+                loadedScripts++;
+                addResult(`✓ Loaded: ${src}`, 'pass');
+                if (loadedScripts === scripts.length && errors === 0) {
+                    runTests();
+                }
+            };
+            script.onerror = () => {
+                errors++;
+                addResult(`✗ Failed to load: ${src}`, 'fail');
+            };
+            document.head.appendChild(script);
+        });
+
+        function runTests() {
+            setTimeout(() => {
+                addResult('All scripts loaded successfully!', 'pass');
+                
+                // Test 2: Check if classes are defined
+                addResult('Test 2: Checking class definitions...', 'info');
+                
+                const classes = [
+                    'GPSTracker',
+                    'MapManager',
+                    'HouseholdDatabase',
+                    'HouseholdManager',
+                    'WaterMeterLocationManager',
+                    'WaterMeterManager',
+                    'MeterReadingManager',
+                    'BillingManager',
+                    'PrinterService',
+                    'RouteRecorder'
+                ];
+
+                classes.forEach(className => {
+                    if (typeof window[className] !== 'undefined') {
+                        addResult(`✓ Class defined: ${className}`, 'pass');
+                    } else {
+                        addResult(`✗ Class missing: ${className}`, 'fail');
+                    }
+                });
+
+                // Test 3: Try to instantiate basic objects
+                addResult('Test 3: Testing object instantiation...', 'info');
+                
+                try {
+                    const db = new HouseholdDatabase();
+                    addResult('✓ HouseholdDatabase instantiated', 'pass');
+                } catch (e) {
+                    addResult('✗ HouseholdDatabase error: ' + e.message, 'fail');
+                }
+
+                try {
+                    const gps = new GPSTracker();
+                    addResult('✓ GPSTracker instantiated', 'pass');
+                } catch (e) {
+                    addResult('✗ GPSTracker error: ' + e.message, 'fail');
+                }
+
+                try {
+                    const mapMgr = new MapManager();
+                    addResult('✓ MapManager instantiated', 'pass');
+                } catch (e) {
+                    addResult('✗ MapManager error: ' + e.message, 'fail');
+                }
+
+                try {
+                    const printerSvc = new PrinterService(null);
+                    addResult('✓ PrinterService instantiated', 'pass');
+                } catch (e) {
+                    addResult('✗ PrinterService error: ' + e.message, 'fail');
+                }
+
+                // Test 4: Check IndexedDB support
+                addResult('Test 4: Checking browser capabilities...', 'info');
+                
+                if ('indexedDB' in window) {
+                    addResult('✓ IndexedDB supported', 'pass');
+                } else {
+                    addResult('✗ IndexedDB not supported', 'fail');
+                }
+
+                if ('geolocation' in navigator) {
+                    addResult('✓ Geolocation API supported', 'pass');
+                } else {
+                    addResult('✗ Geolocation API not supported', 'fail');
+                }
+
+                if ('serviceWorker' in navigator) {
+                    addResult('✓ Service Worker supported (PWA)', 'pass');
+                } else {
+                    addResult('✗ Service Worker not supported', 'fail');
+                }
+
+                addResult('=== TESTS COMPLETE ===', 'info');
+            }, 500);
+        }
+    </script>
+</body>
+</html>
