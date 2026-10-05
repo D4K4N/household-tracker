@@ -36,7 +36,14 @@ class WaterMeterLocationManager {
             // this.map.getMap().addLayer(this.meterCluster);
             this.isVisible = false; // Track visibility state
 
+            // Load locations from database
             this.locations = await this.db.getAllWaterMeterLocations();
+            
+            // Deduplicate by ID (in case of database issues)
+            const uniqueLocations = new Map();
+            this.locations.forEach(l => uniqueLocations.set(l.id, l));
+            this.locations = Array.from(uniqueLocations.values());
+            
             await this.renderAllMarkers();
             
             console.log(`Loaded ${this.locations.length} water meter locations (hidden by default)`);
@@ -147,6 +154,11 @@ class WaterMeterLocationManager {
      * Create marker for water meter location
      */
     async createMarker(location) {
+        // Check if marker already exists, remove it first
+        if (this.markers.has(location.id)) {
+            this.removeMarker(location.id);
+        }
+        
         // Get meter count at this location
         const meters = await this.db.getWaterMetersByLocation(location.id);
         const meterCount = meters.length;

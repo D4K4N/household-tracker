@@ -28,7 +28,14 @@ class HouseholdManager {
             
             this.map.getMap().addLayer(this.markerCluster);
 
+            // Load households from database
             this.households = await this.db.getAllHouseholds();
+            
+            // Deduplicate by ID (in case of database issues)
+            const uniqueHouseholds = new Map();
+            this.households.forEach(h => uniqueHouseholds.set(h.id, h));
+            this.households = Array.from(uniqueHouseholds.values());
+            
             this.renderAllMarkers();
             console.log(`Loaded ${this.households.length} households with clustering`);
         } catch (error) {
@@ -110,6 +117,11 @@ class HouseholdManager {
      * Create marker for household
      */
     createMarker(household) {
+        // Check if marker already exists, remove it first
+        if (this.markers.has(household.id)) {
+            this.removeMarker(household.id);
+        }
+        
         const marker = L.marker([household.latitude, household.longitude], {
             icon: this.createHouseholdIcon(),
             title: household.fullName
@@ -214,7 +226,7 @@ class HouseholdManager {
     removeMarker(id) {
         const marker = this.markers.get(id);
         if (marker) {
-            marker.remove();
+            this.markerCluster.removeLayer(marker);
             this.markers.delete(id);
         }
     }
@@ -223,8 +235,10 @@ class HouseholdManager {
      * Render all household markers
      */
     renderAllMarkers() {
-        // Clear existing markers
-        this.markers.forEach(marker => marker.remove());
+        // Clear existing markers from cluster
+        this.markers.forEach(marker => {
+            this.markerCluster.removeLayer(marker);
+        });
         this.markers.clear();
 
         // Create new markers
