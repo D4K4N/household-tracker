@@ -1634,3 +1634,144 @@ if (gpsTracker.callbacks) {
         }
     };
 }
+
+
+// ========== OFFLINE MAPS MANAGER ==========
+
+const offlineMapManager = new OfflineMapManager();
+
+/**
+ * Show download maps modal
+ */
+async function showDownloadMapsModal() {
+    const isDownloaded = await offlineMapManager.checkIfMapsDownloaded();
+    const cacheInfo = await offlineMapManager.getCacheSize();
+    
+    let message = '📥 Download Maps for Offline Use\n\n';
+    message += 'This will download map tiles for Barangay Diclum.\n\n';
+    message += `Area: Diclum, Manolo Fortich\n`;
+    message += `Zoom levels: 16-20 (close detail)\n`;
+    message += `Estimated size: ~${offlineMapManager.calculateTileCount() * 15 / 1024} MB\n`;
+    message += `Time: 2-5 minutes\n\n`;
+    
+    if (isDownloaded) {
+        message += `✅ Already cached: ${cacheInfo.tiles} tiles (~${cacheInfo.estimatedMB} MB)\n\n`;
+        message += 'Download again to update maps?';
+    } else {
+        message += '⚠️ No cached maps yet.\n\n';
+        message += 'Download now? (Requires internet connection)';
+    }
+    
+    if (confirm(message)) {
+        startMapDownload();
+    }
+    
+    closeSideMenu();
+}
+
+/**
+ * Start downloading maps
+ */
+function startMapDownload() {
+    // Show progress modal
+    const progressHTML = `
+        <div class="modal active" id="downloadProgressModal" style="z-index: 10000;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>📥 Downloading Maps...</h2>
+                </div>
+                <div class="modal-body" style="text-align: center; padding: 30px;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">
+                        <span id="downloadPercent">0%</span>
+                    </div>
+                    <div style="width: 100%; background: #eee; height: 30px; border-radius: 15px; overflow: hidden; margin-bottom: 20px;">
+                        <div id="downloadProgress" style="width: 0%; background: #4CAF50; height: 100%; transition: width 0.3s;"></div>
+                    </div>
+                    <div id="downloadStatus">Preparing download...</div>
+                    <div style="margin-top: 20px; font-size: 12px; color: #666;">
+                        <div id="downloadTiles">0 / 0 tiles</div>
+                        <div style="margin-top: 10px;">Keep your phone screen on and stay connected to internet.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', progressHTML);
+    
+    // Start download
+    offlineMapManager.downloadMapTiles(
+        // Progress callback
+        (downloaded, total) => {
+            const percent = Math.round((downloaded / total) * 100);
+            document.getElementById('downloadPercent').textContent = percent + '%';
+            document.getElementById('downloadProgress').style.width = percent + '%';
+            document.getElementById('downloadTiles').textContent = `${downloaded} / ${total} tiles`;
+            document.getElementById('downloadStatus').textContent = 'Downloading map tiles...';
+        },
+        // Complete callback
+        (success, total) => {
+            const modal = document.getElementById('downloadProgressModal');
+            if (success) {
+                document.getElementById('downloadPercent').textContent = '✅';
+                document.getElementById('downloadStatus').innerHTML = `
+                    <strong>Download Complete!</strong><br>
+                    ${total} tiles downloaded<br><br>
+                    Your maps are now available offline!<br>
+                    You can work without internet connection.
+                `;
+                
+                setTimeout(() => {
+                    modal.remove();
+                    alert('✅ Maps downloaded successfully!\n\nYou can now work offline. Turn off your data and test!');
+                }, 3000);
+            } else {
+                document.getElementById('downloadPercent').textContent = '❌';
+                document.getElementById('downloadStatus').innerHTML = `
+                    <strong>Download Failed</strong><br><br>
+                    Please check your internet connection and try again.
+                `;
+                
+                setTimeout(() => {
+                    modal.remove();
+                }, 3000);
+            }
+        }
+    );
+}
+
+/**
+ * Check offline status
+ */
+async function checkOfflineStatus() {
+    const cacheInfo = await offlineMapManager.getCacheSize();
+    const isDownloaded = await offlineMapManager.checkIfMapsDownloaded();
+    
+    let message = '📊 Offline Status\n\n';
+    message += '=== MAP TILES ===\n';
+    message += `Status: ${isDownloaded ? '✅ Downloaded' : '❌ Not Downloaded'}\n`;
+    message += `Cached tiles: ${cacheInfo.tiles}\n`;
+    message += `Storage used: ~${cacheInfo.estimatedMB} MB\n\n`;
+    
+    message += '=== DATA ===\n';
+    message += `Households: ${householdManager ? householdManager.getAllHouseholds().length : 0}\n`;
+    message += `Database: IndexedDB (永久保存)\n\n`;
+    
+    message += '=== GPS ===\n';
+    message += `Status: ${gpsTracker.isTracking ? '✅ Active' : '⚫ Inactive'}\n`;
+    message += `Works offline: ✅ Yes\n\n`;
+    
+    message += '=== INTERNET ===\n';
+    message += `Status: ${navigator.onLine ? '🟢 Online' : '🔴 Offline'}\n\n`;
+    
+    if (isDownloaded) {
+        message += '✅ App is ready for offline use!\n';
+        message += 'You can turn off data and work normally.';
+    } else {
+        message += '⚠️ Maps not downloaded yet.\n';
+        message += 'Download maps first to work offline.';
+    }
+    
+    alert(message);
+    closeSideMenu();
+}
