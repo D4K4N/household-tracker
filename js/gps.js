@@ -51,6 +51,8 @@ class GPSTracker {
         
         // Also start compass/heading tracking if available
         this.startCompassTracking();
+        
+        console.log('GPS tracking started');
     }
     
     /**
@@ -79,8 +81,6 @@ class GPSTracker {
         } else {
             console.log('Device orientation not supported');
         }
-    }
-        console.log('GPS tracking started');
     }
 
     /**
