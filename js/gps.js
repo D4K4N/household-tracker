@@ -48,6 +48,38 @@ class GPSTracker {
         );
 
         this.isTracking = true;
+        
+        // Also start compass/heading tracking if available
+        this.startCompassTracking();
+    }
+    
+    /**
+     * Start compass/heading tracking
+     */
+    startCompassTracking() {
+        if ('ondeviceorientationabsolute' in window) {
+            window.addEventListener('deviceorientationabsolute', (event) => {
+                if (event.absolute && event.alpha !== null) {
+                    const heading = 360 - event.alpha; // Convert to compass heading
+                    if (this.callbacks.onHeadingUpdate) {
+                        this.callbacks.onHeadingUpdate(heading);
+                    }
+                }
+            });
+        } else if ('ondeviceorientation' in window) {
+            window.addEventListener('deviceorientation', (event) => {
+                if (event.alpha !== null) {
+                    // Compass heading (0 = North, 90 = East, 180 = South, 270 = West)
+                    let heading = event.webkitCompassHeading || (360 - event.alpha);
+                    if (this.callbacks.onHeadingUpdate) {
+                        this.callbacks.onHeadingUpdate(heading);
+                    }
+                }
+            });
+        } else {
+            console.log('Device orientation not supported');
+        }
+    }
         console.log('GPS tracking started');
     }
 

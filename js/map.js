@@ -13,14 +13,15 @@ class MapManager {
         this.pathCoordinates = []; // Store GPS coordinates for path
         this.routeLine = null; // Line to selected household
         this.offlineNotificationShown = false; // Track offline notification
+        this.currentHeading = 0; // Store device heading/direction
         
         // Barangay Diclum center coordinates
         this.diclumCenter = [8.3676, 124.8591];
-        this.defaultZoom = 15;
+        this.defaultZoom = 18; // Increased from 15 for closer view
         
-        // Normal zoom limits for global map
+        // Increased zoom limits for closer viewing
         this.minZoom = 3;
-        this.maxZoom = 19;
+        this.maxZoom = 22; // Increased from 19 to allow very close zoom
     }
 
     /**
@@ -66,56 +67,70 @@ class MapManager {
             tapTolerance: 15
         }).setView(this.diclumCenter, this.defaultZoom);
 
-        // Define base layers (Street Map and Satellite)
+        // Define base layers with higher quality tiles
         this.streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            maxZoom: 19,
+            maxZoom: 22,
+            maxNativeZoom: 19,
             minZoom: 3,
             crossOrigin: true
         });
         
-        // Satellite imagery from Esri
-        this.satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        // Google Satellite - High quality
+        this.googleSatLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            attribution: '&copy; Google',
+            maxZoom: 22,
+            maxNativeZoom: 20,
+            minZoom: 3,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+        });
+        
+        // Google Hybrid (Satellite + Labels) - BEST FOR FIELD WORK
+        this.googleHybridLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            attribution: '&copy; Google',
+            maxZoom: 22,
+            maxNativeZoom: 20,
+            minZoom: 3,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+        });
+        
+        // Esri Satellite (backup)
+        this.esriSatLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri',
-            maxZoom: 19,
+            maxZoom: 22,
+            maxNativeZoom: 19,
             minZoom: 3,
             crossOrigin: true
         });
         
-        // Add street layer by default
-        this.currentLayer = this.streetLayer;
-        this.streetLayer.addTo(this.map);
+        // Start with Google Hybrid (best for navigation)
+        this.currentLayer = this.googleHybridLayer;
+        this.googleHybridLayer.addTo(this.map);
         
         // Store reference for layer control
         this.baseLayers = {
+            'Google Hybrid': this.googleHybridLayer,
+            'Google Satellite': this.googleSatLayer,
             'Street Map': this.streetLayer,
-            'Satellite': this.satelliteLayer
+            'Esri Satellite': this.esriSatLayer
         };
         
-        // Add layer control (Map/Satellite toggle)
+        // Add layer control
         L.control.layers(this.baseLayers, null, {
             position: 'topright'
         }).addTo(this.map);
         
         // Detect when tiles fail to load (offline)
-        this.streetLayer.on('tileerror', (error) => {
-            console.log('Map tile load error (possibly offline):', error);
-            this.showOfflineNotification();
-        });
-        
-        this.satelliteLayer.on('tileerror', (error) => {
-            console.log('Satellite tile load error (possibly offline):', error);
-            this.showOfflineNotification();
-        });
+        this.streetLayer.on('tileerror', () => this.showOfflineNotification());
+        this.googleSatLayer.on('tileerror', () => this.showOfflineNotification());
+        this.googleHybridLayer.on('tileerror', () => this.showOfflineNotification());
+        this.esriSatLayer.on('tileerror', () => this.showOfflineNotification());
         
         // Detect when tiles load successfully
-        this.streetLayer.on('load', () => {
-            this.hideOfflineNotification();
-        });
-        
-        this.satelliteLayer.on('load', () => {
-            this.hideOfflineNotification();
-        });
+        this.streetLayer.on('load', () => this.hideOfflineNotification());
+        this.googleSatLayer.on('load', () => this.hideOfflineNotification());
+        this.googleHybridLayer.on('load', () => this.hideOfflineNotification());
+        this.esriSatLayer.on('load', () => this.hideOfflineNotification());
 
         // Add zoom control to bottom right
         L.control.zoom({
@@ -161,45 +176,87 @@ class MapManager {
 
         // If marker doesn't exist, create it
         if (!this.currentLocationMarker) {
-            // Create custom icon for current location
-            const currentLocationIcon = L.divIcon({
-                className: 'current-location-marker',
+            // Create custom directional arrow icon
+            const arrowIcon = L.divIcon({
+                className: 'current-location-arrow',
                 html: `
                     <div style="
-                        width: 20px;
-                        height: 20px;
-                        background: #2196F3;
-                        border: 3px solid white;
-                        border-radius: 50%;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                    "></div>
+                        width: 40px;
+                        height: 40px;
+                        position: relative;
+                        transform: rotate(${this.currentHeading}deg);
+                        transition: transform 0.3s ease;
+                    ">
+                        <svg width="40" height="40" viewBox="0 0 40 40" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                            <!-- Arrow pointer -->
+                            <path d="M 20 5 L 28 25 L 20 20 L 12 25 Z" 
+                                  fill="#2196F3" 
+                                  stroke="white" 
+                                  stroke-width="2"/>
+                            <!-- Center dot -->
+                            <circle cx="20" cy="20" r="4" 
+                                    fill="white" 
+                                    stroke="#2196F3" 
+                                    stroke-width="2"/>
+                        </svg>
+                    </div>
                 `,
-                iconSize: [20, 20],
-                iconAnchor: [10, 10]
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
             });
 
             // Create marker
             this.currentLocationMarker = L.marker(latlng, {
-                icon: currentLocationIcon,
-                zIndexOffset: 1000 // Keep current location on top
+                icon: arrowIcon,
+                zIndexOffset: 1000,
+                rotationAngle: this.currentHeading
             }).addTo(this.map);
 
-            // Create accuracy circle
+            // Create accuracy circle (thinner, more subtle)
             this.currentLocationCircle = L.circle(latlng, {
                 radius: accuracy,
                 color: '#2196F3',
                 fillColor: '#2196F3',
-                fillOpacity: 0.1,
-                weight: 1
+                fillOpacity: 0.08,
+                weight: 1,
+                opacity: 0.4
             }).addTo(this.map);
 
-            // Center map on first location
+            // Center map on first location with closer zoom
             this.map.setView(latlng, this.defaultZoom);
 
-            console.log('Current location marker created');
+            console.log('Current location arrow marker created');
         } else {
-            // Update existing marker position
+            // Update existing marker position and rotation
             this.currentLocationMarker.setLatLng(latlng);
+            
+            // Update arrow rotation
+            const arrowIcon = L.divIcon({
+                className: 'current-location-arrow',
+                html: `
+                    <div style="
+                        width: 40px;
+                        height: 40px;
+                        position: relative;
+                        transform: rotate(${this.currentHeading}deg);
+                        transition: transform 0.3s ease;
+                    ">
+                        <svg width="40" height="40" viewBox="0 0 40 40" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                            <path d="M 20 5 L 28 25 L 20 20 L 12 25 Z" 
+                                  fill="#2196F3" 
+                                  stroke="white" 
+                                  stroke-width="2"/>
+                            <circle cx="20" cy="20" r="4" 
+                                    fill="white" 
+                                    stroke="#2196F3" 
+                                    stroke-width="2"/>
+                        </svg>
+                    </div>
+                `,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+            this.currentLocationMarker.setIcon(arrowIcon);
             
             // Update accuracy circle
             if (this.currentLocationCircle) {
@@ -207,7 +264,19 @@ class MapManager {
                 this.currentLocationCircle.setRadius(accuracy);
             }
 
-            console.log('Current location marker updated');
+            console.log('Current location arrow updated');
+        }
+    }
+
+    /**
+     * Update heading/direction of arrow
+     */
+    updateHeading(heading) {
+        this.currentHeading = heading;
+        if (this.currentLocationMarker) {
+            const latlng = this.currentLocationMarker.getLatLng();
+            this.updateCurrentLocation(latlng.lat, latlng.lng, 
+                this.currentLocationCircle ? this.currentLocationCircle.getRadius() : 10);
         }
     }
 

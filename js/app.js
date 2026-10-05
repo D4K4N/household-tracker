@@ -1624,3 +1624,13 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', () => {
     console.log('App is offline - IndexedDB still works!');
 });
+
+
+// Setup compass heading callback
+if (gpsTracker.callbacks) {
+    gpsTracker.callbacks.onHeadingUpdate = (heading) => {
+        if (mapManager && mapManager.updateHeading) {
+            mapManager.updateHeading(heading);
+        }
+    };
+}
