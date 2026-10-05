@@ -3,8 +3,8 @@
  * Caches app assets and map tiles for offline functionality
  */
 
-const CACHE_NAME = 'household-tracker-v2';
-const TILE_CACHE = 'map-tiles-v1';
+const CACHE_NAME = 'household-tracker-v3';
+const TILE_CACHE = 'map-tiles-v2';
 
 const urlsToCache = [
     '/',
@@ -15,7 +15,15 @@ const urlsToCache = [
     '/js/map.js',
     '/js/database.js',
     '/js/households.js',
-    '/manifest.json'
+    '/js/waterMeterLocations.js',
+    '/js/waterMeters.js',
+    '/js/meterReading.js',
+    '/js/billing.js',
+    '/js/printer.js',
+    '/js/routes.js',
+    '/manifest.json',
+    '/assets/icon-192.png',
+    '/assets/icon-512.png'
 ];
 
 /**
@@ -73,8 +81,11 @@ self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // Handle OpenStreetMap tiles separately
-    if (url.hostname.includes('tile.openstreetmap.org')) {
+    // Handle map tiles (OpenStreetMap and Esri Satellite)
+    const isTileRequest = url.hostname.includes('tile.openstreetmap.org') || 
+                          url.hostname.includes('server.arcgisonline.com');
+    
+    if (isTileRequest) {
         event.respondWith(
             caches.open(TILE_CACHE).then((cache) => {
                 return cache.match(request).then((cachedResponse) => {
