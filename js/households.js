@@ -16,7 +16,7 @@ class HouseholdManager {
     /**
      * Initialize - load all households from database
      */
-    async initialize() {
+    async initialize(showMarkersOnInit = false) {
         try {
             // Create marker cluster group (fixes lag!)
             this.markerCluster = L.markerClusterGroup({
@@ -26,7 +26,13 @@ class HouseholdManager {
                 zoomToBoundsOnClick: true
             });
             
-            this.map.getMap().addLayer(this.markerCluster);
+            // Don't add to map immediately if clean mode is enabled
+            if (showMarkersOnInit) {
+                this.map.getMap().addLayer(this.markerCluster);
+                this.isVisible = true;
+            } else {
+                this.isVisible = false; // Track visibility state
+            }
 
             // Load households from database
             this.households = await this.db.getAllHouseholds();
@@ -36,11 +42,55 @@ class HouseholdManager {
             this.households.forEach(h => uniqueHouseholds.set(h.id, h));
             this.households = Array.from(uniqueHouseholds.values());
             
-            this.renderAllMarkers();
-            console.log(`Loaded ${this.households.length} households with clustering`);
+            // Only render markers if we're showing them
+            if (showMarkersOnInit) {
+                this.renderAllMarkers();
+            }
+            
+            console.log(`Loaded ${this.households.length} households ${showMarkersOnInit ? 'with clustering' : '(hidden in clean mode)'}`);
         } catch (error) {
             console.error('Failed to load households:', error);
         }
+    }
+
+    /**
+     * Show household markers on map
+     */
+    show() {
+        if (!this.isVisible && this.markerCluster) {
+            this.map.getMap().addLayer(this.markerCluster);
+            this.isVisible = true;
+            
+            // Render markers if not already rendered
+            if (this.markers.size === 0 && this.households.length > 0) {
+                this.renderAllMarkers();
+            }
+            
+            console.log('Household markers shown');
+        }
+    }
+
+    /**
+     * Hide household markers from map
+     */
+    hide() {
+        if (this.isVisible && this.markerCluster) {
+            this.map.getMap().removeLayer(this.markerCluster);
+            this.isVisible = false;
+            console.log('Household markers hidden');
+        }
+    }
+
+    /**
+     * Clear all markers and hide from map
+     */
+    clearMap() {
+        this.hide();
+        // Clear existing markers from cluster
+        this.markers.forEach(marker => {
+            this.markerCluster.removeLayer(marker);
+        });
+        this.markers.clear();
     }
 
     /**
@@ -289,12 +339,139 @@ class HouseholdManager {
             return;
         }
 
+        // Show all markers
+        this.show();
+        this.renderAllMarkers();
+
         const bounds = [];
         this.households.forEach(h => {
             bounds.push([h.latitude, h.longitude]);
         });
 
         this.map.getMap().fitBounds(bounds, { padding: [50, 50] });
+    }
+
+    /**
+     * Show only specific households and their related meter locations
+     */
+    async showSpecificHouseholds(householdIds) {
+        // Clear existing markers first
+        this.clearMap();
+        
+        // Show the cluster layer
+        this.show();
+        
+        // Create markers only for specified households
+        const householdsToShow = this.households.filter(h => householdIds.includes(h.id));
+        householdsToShow.forEach(household => {
+            this.createMarker(household);
+        });
+        
+        console.log(`Showing ${householdsToShow.length} specific households`);
+        return householdsToShow;
+    }
+
+    /**
+     * Search households and show results on clean map
+     */
+    async searchAndShow(query) {
+        try {
+            // Search for households
+            const results = await this.searchHouseholds(query);
+            
+            if (results.length === 0) {
+                return { households: [], meters: [], meterLocations: [] };
+            }
+            
+            // Show households on map
+            const householdIds = results.map(h => h.id);
+            await this.showSpecificHouseholds(householdIds);
+            
+            // Get related water meters for each household
+            const allMeters = [];
+            const meterLocationIds = new Set();
+            
+            for (const household of results) {
+                // Get meters by household ID
+                const householdMeters = await this.db.getWaterMetersByHousehold(household.id);
+                allMeters.push(...householdMeters);
+                
+                // Also search by owner name matching surname
+                const allSystemMeters = await this.db.getAllWaterMeters();
+                const nameMatchingMeters = allSystemMeters.filter(meter => 
+                    meter.ownerName && meter.ownerName.toLowerCase().includes(query.toLowerCase())
+                );
+                allMeters.push(...nameMatchingMeters);
+                
+                // Collect meter location IDs
+                [...householdMeters, ...nameMatchingMeters].forEach(meter => {
+                    if (meter.waterMeterLocationId) {
+                        meterLocationIds.add(meter.waterMeterLocationId);
+                    }
+                });
+            }
+            
+            // Remove duplicates
+            const uniqueMeters = allMeters.filter((meter, index, self) => 
+                index === self.findIndex(m => m.id === meter.id)
+            );
+            
+            // Show meter locations if any found
+            const meterLocations = [];
+            if (meterLocationIds.size > 0 && window.meterLocationManager) {
+                const shownLocations = await window.meterLocationManager.showSpecificMeters(Array.from(meterLocationIds));
+                meterLocations.push(...shownLocations);
+            }
+            
+            // Fit map to show both households and meter locations
+            setTimeout(async () => {
+                this.fitMapToSearchResults(results, meterLocations);
+                
+                // Draw house-to-meter routes
+                if (meterLocations.length > 0) {
+                    try {
+                        await this.map.drawHouseToMeterRoutes(results, meterLocations, this.db);
+                    } catch (error) {
+                        console.error('Error drawing house-to-meter routes:', error);
+                    }
+                }
+            }, 500);
+            
+            console.log(`Search results: ${results.length} households, ${uniqueMeters.length} meters, ${meterLocations.length} meter locations`);
+            
+            return { 
+                households: results, 
+                meters: uniqueMeters, 
+                meterLocations: meterLocations 
+            };
+        } catch (error) {
+            console.error('Search and show error:', error);
+            return { households: [], meters: [], meterLocations: [] };
+        }
+    }
+
+    /**
+     * Fit map to show both household and meter locations
+     */
+    fitMapToSearchResults(households, meterLocations) {
+        const bounds = [];
+        
+        // Add household coordinates
+        households.forEach(h => {
+            bounds.push([h.latitude, h.longitude]);
+        });
+        
+        // Add meter location coordinates
+        meterLocations.forEach(l => {
+            bounds.push([l.latitude, l.longitude]);
+        });
+        
+        if (bounds.length > 0) {
+            this.map.getMap().fitBounds(bounds, { 
+                padding: [50, 50],
+                maxZoom: 18
+            });
+        }
     }
 
     /**

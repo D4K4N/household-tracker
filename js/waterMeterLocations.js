@@ -309,6 +309,27 @@ class WaterMeterLocationManager {
     }
 
     /**
+     * Show specific meter locations on map
+     */
+    async showSpecificMeters(locationIds) {
+        // Clear existing markers first
+        this.markers.forEach(marker => this.meterCluster.removeLayer(marker));
+        this.markers.clear();
+        
+        // Show the cluster layer
+        this.show();
+        
+        // Create markers only for specified locations
+        const locationsToShow = this.locations.filter(l => locationIds.includes(l.id));
+        for (const location of locationsToShow) {
+            await this.createMarker(location);
+        }
+        
+        console.log(`Showing ${locationsToShow.length} specific meter locations`);
+        return locationsToShow;
+    }
+
+    /**
      * Show all meter locations on map
      */
     showAllLocations() {

@@ -107,7 +107,7 @@ async function initializeApp() {
         routeRecorder = new RouteRecorder(mapManager, database);
         window.routeRecorder = routeRecorder;
         
-        await householdManager.initialize();
+        await householdManager.initialize(false); // FALSE = Clean mode (no pins shown)
         await meterLocationManager.initialize();
         await waterMeterManager.initialize();
         await routeRecorder.loadAllRoutes();
@@ -240,12 +240,17 @@ async function handleSearch() {
     
     if (!query) {
         searchResults.classList.remove('active');
+        // Clear map when no search query
+        householdManager.clearMap();
+        meterLocationManager.hide();
+        mapManager.clearRoute(); // This will clear both GPS and house-to-meter routes
         return;
     }
 
     try {
-        const results = await householdManager.searchHouseholds(query);
-        displaySearchResults(results);
+        // Use new search and show method for clean map workflow
+        const searchResult = await householdManager.searchAndShow(query);
+        displaySearchResults(searchResult.households, searchResult.meters, searchResult.meterLocations);
     } catch (error) {
         console.error('Search error:', error);
     }
@@ -254,19 +259,21 @@ async function handleSearch() {
 /**
  * Display search results
  */
-function displaySearchResults(results) {
-    if (results.length === 0) {
+function displaySearchResults(households, meters, meterLocations) {
+    if (households.length === 0) {
         searchResults.innerHTML = '<div class="no-results">No households found</div>';
         searchResults.classList.add('active');
         return;
     }
 
-    const html = results.map(household => `
+    const html = households.map(household => `
         <div class="search-result-item" onclick="selectSearchResult(${household.id})">
             <div class="search-result-name">${household.fullName}</div>
             <div class="search-result-details">
                 ${household.address ? household.address : 'No address'}
-                ${household.meterNumber ? ' • ' + household.meterNumber : ''}
+                ${household.meterNumber ? ' • Meter: ' + household.meterNumber : ''}
+                ${meters.length > 0 ? ` • ${meters.length} meter(s)` : ''}
+                ${meterLocations.length > 0 ? ` • ${meterLocations.length} location(s)` : ''}
             </div>
         </div>
     `).join('');

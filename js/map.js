@@ -67,6 +67,10 @@ class MapManager {
             tapTolerance: 15
         }).setView(this.diclumCenter, this.defaultZoom);
 
+        // Add rotation capability
+        this.mapRotation = 0; // Current map rotation in degrees
+        this.enableMapRotation();
+
         // Define base layers with higher quality tiles
         this.streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -136,6 +140,12 @@ class MapManager {
         L.control.zoom({
             position: 'bottomright'
         }).addTo(this.map);
+        
+        // Add rotation controls
+        this.addRotationControls();
+        
+        // Enhanced zoom functionality
+        this.enhanceZoomControls();
 
         this.isInitialized = true;
         console.log('Map initialized - Barangay Diclum, Manolo Fortich');
@@ -357,13 +367,182 @@ class MapManager {
     }
 
     /**
+     * Draw routes between households and their meter locations
+     */
+    async drawHouseToMeterRoutes(households, meterLocations, database) {
+        // Clear any existing house-to-meter routes
+        this.clearHouseToMeterRoutes();
+        
+        // Initialize storage for house-to-meter routes
+        if (!this.houseToMeterRoutes) {
+            this.houseToMeterRoutes = [];
+        }
+
+        const drawnRoutes = [];
+
+        for (const household of households) {
+            try {
+                // Get meters for this household
+                const householdMeters = await database.getWaterMetersByHousehold(household.id);
+                
+                // Draw routes to actual meter locations
+                for (const meter of householdMeters) {
+                    if (meter.waterMeterLocationId) {
+                        const meterLocation = meterLocations.find(loc => loc.id === meter.waterMeterLocationId);
+                        if (meterLocation) {
+                            const route = this.drawSingleHouseToMeterRoute(household, meterLocation, meter);
+                            if (route) {
+                                this.houseToMeterRoutes.push(route);
+                                drawnRoutes.push({
+                                    household: household,
+                                    meterLocation: meterLocation,
+                                    meter: meter,
+                                    distance: route.distance,
+                                    line: route.line
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // If no meters found by household ID, try matching by name
+                if (householdMeters.length === 0) {
+                    const allMeters = await database.getAllWaterMeters();
+                    const nameMatchingMeters = allMeters.filter(meter => 
+                        meter.ownerName && 
+                        meter.ownerName.toLowerCase().includes(household.surname.toLowerCase())
+                    );
+
+                    for (const meter of nameMatchingMeters) {
+                        if (meter.waterMeterLocationId) {
+                            const meterLocation = meterLocations.find(loc => loc.id === meter.waterMeterLocationId);
+                            if (meterLocation) {
+                                const route = this.drawSingleHouseToMeterRoute(household, meterLocation, meter);
+                                if (route) {
+                                    this.houseToMeterRoutes.push(route);
+                                    drawnRoutes.push({
+                                        household: household,
+                                        meterLocation: meterLocation,
+                                        meter: meter,
+                                        distance: route.distance,
+                                        line: route.line
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error drawing route for household:', household.fullName, error);
+            }
+        }
+
+        console.log(`Drew ${drawnRoutes.length} house-to-meter routes`);
+        return drawnRoutes;
+    }
+
+    /**
+     * Draw a single route line between house and meter location
+     */
+    drawSingleHouseToMeterRoute(household, meterLocation, meter = null) {
+        const houseLatLng = [household.latitude, household.longitude];
+        const meterLatLng = [meterLocation.latitude, meterLocation.longitude];
+
+        // Calculate distance
+        const distance = this.calculateDistance(
+            household.latitude, household.longitude,
+            meterLocation.latitude, meterLocation.longitude
+        );
+
+        // Draw the route line
+        const routeLine = L.polyline([houseLatLng, meterLatLng], {
+            color: '#2196F3',        // Blue color to distinguish from GPS route
+            weight: 3,
+            opacity: 0.8,
+            dashArray: '8, 5'        // Dashed line
+        }).addTo(this.map);
+
+        // Add distance label at midpoint
+        const midLat = (household.latitude + meterLocation.latitude) / 2;
+        const midLng = (household.longitude + meterLocation.longitude) / 2;
+        
+        const distanceText = distance < 1000 
+            ? `${Math.round(distance)}m` 
+            : `${(distance / 1000).toFixed(2)}km`;
+
+        const meterInfo = meter ? ` (${meter.meterNumber})` : '';
+
+        const distanceLabel = L.marker([midLat, midLng], {
+            icon: L.divIcon({
+                className: 'distance-label',
+                html: `<div style="
+                    background: rgba(33, 150, 243, 0.9);
+                    border: 2px solid white;
+                    border-radius: 15px;
+                    padding: 3px 10px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: white;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+                    white-space: nowrap;
+                    text-align: center;
+                ">${distanceText}${meterInfo}</div>`,
+                iconSize: [80, 24],
+                iconAnchor: [40, 12]
+            })
+        }).addTo(this.map);
+
+        return {
+            line: routeLine,
+            label: distanceLabel,
+            distance: distanceText,
+            distanceMeters: distance
+        };
+    }
+
+    /**
+     * Calculate distance between two points in meters
+     */
+    calculateDistance(lat1, lng1, lat2, lng2) {
+        const R = 6371e3; // Earth's radius in meters
+        const φ1 = lat1 * Math.PI/180; // φ, λ in radians
+        const φ2 = lat2 * Math.PI/180;
+        const Δφ = (lat2-lat1) * Math.PI/180;
+        const Δλ = (lng2-lng1) * Math.PI/180;
+
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+        return R * c; // Distance in meters
+    }
+
+    /**
+     * Clear all house-to-meter routes
+     */
+    clearHouseToMeterRoutes() {
+        if (this.houseToMeterRoutes) {
+            this.houseToMeterRoutes.forEach(route => {
+                if (route.line) this.map.removeLayer(route.line);
+                if (route.label) this.map.removeLayer(route.label);
+            });
+            this.houseToMeterRoutes = [];
+        }
+    }
+
+    /**
      * Clear route line
      */
     clearRoute() {
+        // Clear GPS to household route
         if (this.routeLine) {
             this.map.removeLayer(this.routeLine);
             this.routeLine = null;
         }
+        
+        // Clear house to meter routes
+        this.clearHouseToMeterRoutes();
     }
 
     /**
@@ -371,6 +550,311 @@ class MapManager {
      */
     getMap() {
         return this.map;
+    }
+
+    /**
+     * Enable map rotation functionality
+     */
+    enableMapRotation() {
+        this.mapRotation = 0;
+        this.isRotating = false;
+        this.rotationStartX = 0;
+        this.rotationStartAngle = 0;
+        
+        // Add rotation event listeners
+        const mapContainer = this.map.getContainer();
+        
+        // Two-finger rotation for touch devices
+        let touches = [];
+        let initialAngle = 0;
+        
+        mapContainer.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                touches = Array.from(e.touches);
+                initialAngle = this.getTouchAngle(touches[0], touches[1]);
+                this.rotationStartAngle = this.mapRotation;
+            }
+        });
+        
+        mapContainer.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && touches.length === 2) {
+                e.preventDefault();
+                const currentAngle = this.getTouchAngle(e.touches[0], e.touches[1]);
+                const angleDiff = currentAngle - initialAngle;
+                this.rotateMap(this.rotationStartAngle + angleDiff);
+            }
+        });
+        
+        // Keyboard rotation (Shift + Arrow keys)
+        document.addEventListener('keydown', (e) => {
+            if (e.shiftKey) {
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    this.rotateMap(this.mapRotation - 15);
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    this.rotateMap(this.mapRotation + 15);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    this.resetRotation();
+                }
+            }
+        });
+    }
+    
+    /**
+     * Calculate angle between two touch points
+     */
+    getTouchAngle(touch1, touch2) {
+        const dx = touch2.clientX - touch1.clientX;
+        const dy = touch2.clientY - touch1.clientY;
+        return Math.atan2(dy, dx) * 180 / Math.PI;
+    }
+    
+    /**
+     * Rotate the map to specified angle
+     */
+    rotateMap(angle) {
+        // Normalize angle to 0-360 range
+        this.mapRotation = ((angle % 360) + 360) % 360;
+        
+        // Apply CSS transform to map container
+        const mapPane = this.map.getPane('mapPane');
+        if (mapPane) {
+            mapPane.style.transform = `rotate(${this.mapRotation}deg)`;
+            mapPane.style.transformOrigin = 'center center';
+        }
+        
+        // Update compass display
+        this.updateCompass();
+        
+        console.log(`Map rotated to ${this.mapRotation.toFixed(1)}°`);
+    }
+    
+    /**
+     * Reset map rotation to north
+     */
+    resetRotation() {
+        this.rotateMap(0);
+    }
+    
+    /**
+     * Add rotation controls to map
+     */
+    addRotationControls() {
+        // Create rotation control
+        const RotationControl = L.Control.extend({
+            options: {
+                position: 'topright'
+            },
+            
+            onAdd: function(map) {
+                const container = L.DomUtil.create('div', 'leaflet-bar rotation-control');
+                
+                // Compass button (shows current rotation, click to reset)
+                this.compassButton = L.DomUtil.create('a', 'compass-button', container);
+                this.compassButton.href = '#';
+                this.compassButton.title = 'Reset rotation (Shift + ↑)';
+                this.compassButton.innerHTML = `
+                    <div style="
+                        width: 30px;
+                        height: 30px;
+                        position: relative;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 16px;
+                    ">
+                        <span style="transform: rotate(0deg); transition: transform 0.3s ease;">🧭</span>
+                    </div>
+                `;
+                
+                // Rotate left button
+                this.leftButton = L.DomUtil.create('a', 'rotate-left-button', container);
+                this.leftButton.href = '#';
+                this.leftButton.title = 'Rotate left (Shift + ←)';
+                this.leftButton.innerHTML = '↶';
+                this.leftButton.style.cssText = `
+                    display: block;
+                    width: 30px;
+                    height: 30px;
+                    line-height: 30px;
+                    text-align: center;
+                    font-size: 18px;
+                    text-decoration: none;
+                    color: #333;
+                    border-top: 1px solid #ccc;
+                `;
+                
+                // Rotate right button
+                this.rightButton = L.DomUtil.create('a', 'rotate-right-button', container);
+                this.rightButton.href = '#';
+                this.rightButton.title = 'Rotate right (Shift + →)';
+                this.rightButton.innerHTML = '↷';
+                this.rightButton.style.cssText = `
+                    display: block;
+                    width: 30px;
+                    height: 30px;
+                    line-height: 30px;
+                    text-align: center;
+                    font-size: 18px;
+                    text-decoration: none;
+                    color: #333;
+                    border-top: 1px solid #ccc;
+                `;
+                
+                // Prevent map events on control
+                L.DomEvent.disableClickPropagation(container);
+                L.DomEvent.disableScrollPropagation(container);
+                
+                return container;
+            }
+        });
+        
+        this.rotationControl = new RotationControl();
+        this.rotationControl.addTo(this.map);
+        
+        // Bind events
+        const mapManager = this;
+        
+        this.rotationControl.compassButton.onclick = function(e) {
+            e.preventDefault();
+            mapManager.resetRotation();
+        };
+        
+        this.rotationControl.leftButton.onclick = function(e) {
+            e.preventDefault();
+            mapManager.rotateMap(mapManager.mapRotation - 15);
+        };
+        
+        this.rotationControl.rightButton.onclick = function(e) {
+            e.preventDefault();
+            mapManager.rotateMap(mapManager.mapRotation + 15);
+        };
+    }
+    
+    /**
+     * Update compass display
+     */
+    updateCompass() {
+        if (this.rotationControl && this.rotationControl.compassButton) {
+            const compass = this.rotationControl.compassButton.querySelector('span');
+            if (compass) {
+                compass.style.transform = `rotate(${-this.mapRotation}deg)`;
+            }
+        }
+    }
+    
+    /**
+     * Enhanced zoom controls with smooth animations
+     */
+    enhanceZoomControls() {
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Don't interfere if user is typing
+            if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'textarea') {
+                return;
+            }
+            
+            if (e.key === '+' || e.key === '=') {
+                e.preventDefault();
+                this.smoothZoomIn();
+            } else if (e.key === '-') {
+                e.preventDefault();
+                this.smoothZoomOut();
+            } else if (e.key === '0') {
+                e.preventDefault();
+                this.resetToDefaultView();
+            }
+        });
+        
+        // Enhanced scroll wheel zoom with momentum
+        this.map.getContainer().addEventListener('wheel', (e) => {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.5 : 0.5;
+                const targetZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.map.getZoom() + delta));
+                
+                this.map.setZoom(targetZoom, {
+                    animate: true,
+                    duration: 0.25
+                });
+            }
+        }, { passive: false });
+        
+        console.log('Enhanced zoom controls enabled (Keyboard: +/- to zoom, 0 to reset, Ctrl+scroll for fine zoom)');
+        
+        // Show help tooltip on first load
+        this.showMapControlsHelp();
+    }
+    
+    /**
+     * Smooth zoom in
+     */
+    smoothZoomIn() {
+        const currentZoom = this.map.getZoom();
+        const targetZoom = Math.min(this.maxZoom, currentZoom + 1);
+        
+        this.map.setZoom(targetZoom, {
+            animate: true,
+            duration: 0.3
+        });
+    }
+    
+    /**
+     * Smooth zoom out
+     */
+    smoothZoomOut() {
+        const currentZoom = this.map.getZoom();
+        const targetZoom = Math.max(this.minZoom, currentZoom - 1);
+        
+        this.map.setZoom(targetZoom, {
+            animate: true,
+            duration: 0.3
+        });
+    }
+    
+    /**
+     * Reset to default view
+     */
+    resetToDefaultView() {
+        this.resetRotation();
+        this.map.setView(this.diclumCenter, this.defaultZoom, {
+            animate: true,
+            duration: 0.5
+        });
+        console.log('Reset to default view (Diclum center)');
+    }
+    
+    /**
+     * Show map controls help (first time only)
+     */
+    showMapControlsHelp() {
+        // Check if help was already shown
+        if (localStorage.getItem('mapControlsHelpShown')) {
+            return;
+        }
+        
+        setTimeout(() => {
+            const helpText = `🗺️ Enhanced Map Controls:
+
+🔄 Rotation:
+• Two fingers: Rotate on touch devices
+• Shift + ← →: Rotate with keyboard
+• Shift + ↑: Reset rotation
+• 🧭 button: Reset rotation
+
+🔍 Zoom:
+• + / -: Zoom in/out
+• 0: Reset to center
+• Ctrl + scroll: Fine zoom control
+
+Tap OK to dismiss this help.`;
+
+            if (confirm(helpText)) {
+                localStorage.setItem('mapControlsHelpShown', 'true');
+            }
+        }, 2000); // Show after 2 seconds
     }
 
     /**

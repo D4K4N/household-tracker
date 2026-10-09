@@ -40,11 +40,14 @@ class PrinterService {
             const reminderSetting = await this.db.getSettingByKey('reminderText');
             const reminders = reminderSetting?.value || this.getDefaultReminders();
 
+            // Generate payment code
+            const paymentCode = this.generatePaymentCode(bill);
+
             // Generate print content
             const printContent = this.generateBillHTML(bill, reminders);
 
-            // Open print preview
-            this.openPrintPreview(printContent);
+            // Open print preview with barcode
+            this.openPrintPreview(printContent, paymentCode);
         } catch (error) {
             console.error('Print error:', error);
             throw error;
@@ -190,6 +193,31 @@ class PrinterService {
         .no-border {
             border-bottom: none;
         }
+        
+        .barcode-section {
+            margin: 4mm 0;
+            padding: 3mm 0;
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+            text-align: center;
+        }
+        
+        .barcode-title {
+            font-size: 10px;
+            font-weight: bold;
+            margin-bottom: 2mm;
+        }
+        
+        .barcode-container {
+            margin: 2mm 0;
+        }
+        
+        .barcode-number {
+            font-family: monospace;
+            font-size: 9px;
+            margin-top: 1mm;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
@@ -263,6 +291,14 @@ class PrinterService {
         </div>
     </div>
     
+    <div class="barcode-section">
+        <div class="barcode-title">Payment Code</div>
+        <div class="barcode-container">
+            <canvas id="barcode" width="200" height="50"></canvas>
+        </div>
+        <div class="barcode-number">${this.generatePaymentCode(bill)}</div>
+    </div>
+    
     <div class="reminders">
         <div class="reminders-title">Reminders</div>
         ${this.formatReminders(reminders)}
@@ -270,6 +306,48 @@ class PrinterService {
 </body>
 </html>
         `;
+    }
+
+    /**
+     * Generate unique payment code for barcode
+     */
+    generatePaymentCode(bill) {
+        // Format: DWA + Year + Month + MeterNumber + Amount (padded)
+        const [year, month] = bill.billingPeriod.split('-');
+        const meterNumber = (bill.meterData?.meterNumber || '0000').padStart(4, '0');
+        const amount = Math.round(bill.totalDue).toString().padStart(6, '0');
+        
+        // Generate payment code: DWA + YYYYMM + MeterNumber + Amount
+        return `DWA${year}${month}${meterNumber}${amount}`;
+    }
+
+    /**
+     * Generate barcode using Code 128
+     */
+    generateBarcode(canvas, code) {
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        // Clear canvas
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, width, height);
+        
+        // Simple barcode representation (alternating bars)
+        ctx.fillStyle = 'black';
+        const barWidth = width / (code.length * 2);
+        
+        for (let i = 0; i < code.length; i++) {
+            const charCode = code.charCodeAt(i);
+            const barCount = (charCode % 4) + 1; // 1-4 bars per character
+            
+            for (let j = 0; j < barCount; j++) {
+                const x = (i * 2 * barWidth) + (j * barWidth * 0.5);
+                if ((i + j) % 2 === 0) { // Alternate black/white
+                    ctx.fillRect(x, 0, barWidth * 0.4, height);
+                }
+            }
+        }
     }
 
     /**
@@ -306,7 +384,7 @@ Kindly report leaks or acts of vandalism on our pipeline.`;
     /**
      * Open print preview
      */
-    openPrintPreview(htmlContent) {
+    openPrintPreview(htmlContent, paymentCode) {
         // Create a new window for print preview
         const printWindow = window.open('', '_blank', 'width=400,height=600');
         
@@ -318,10 +396,18 @@ Kindly report leaks or acts of vandalism on our pipeline.`;
         printWindow.document.write(htmlContent);
         printWindow.document.close();
 
-        // Wait for content to load, then print
-        printWindow.onload = function() {
+        // Wait for content to load, then generate barcode and print
+        printWindow.onload = () => {
             setTimeout(() => {
-                printWindow.print();
+                const canvas = printWindow.document.getElementById('barcode');
+                if (canvas && paymentCode) {
+                    this.generateBarcode(canvas, paymentCode);
+                }
+                
+                // Print after barcode is generated
+                setTimeout(() => {
+                    printWindow.print();
+                }, 100);
             }, 250);
         };
     }

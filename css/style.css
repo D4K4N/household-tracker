@@ -1059,6 +1059,71 @@ body {
     line-height: 1.6;
 }
 
+/* Distance label styling for house-to-meter routes */
+.distance-label {
+    pointer-events: none !important;
+}
+
+.distance-label div {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    user-select: none;
+    pointer-events: none;
+}
+
+/* Map rotation controls */
+.rotation-control {
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.3);
+}
+
+.compass-button {
+    display: block !important;
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    text-align: center;
+    text-decoration: none;
+    color: #333;
+    background: white;
+    border-radius: 4px 4px 0 0;
+}
+
+.compass-button:hover,
+.rotate-left-button:hover,
+.rotate-right-button:hover {
+    background: #f4f4f4;
+    color: #2196F3;
+}
+
+.rotate-left-button,
+.rotate-right-button {
+    background: white;
+}
+
+.rotate-right-button {
+    border-radius: 0 0 4px 4px;
+}
+
+/* Enhanced zoom controls styling */
+.leaflet-control-zoom {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+    border: none !important;
+}
+
+.leaflet-control-zoom a {
+    background: white !important;
+    color: #333 !important;
+    font-size: 18px !important;
+    font-weight: bold !important;
+    border: none !important;
+}
+
+.leaflet-control-zoom a:hover {
+    background: #f0f0f0 !important;
+    color: #2196F3 !important;
+}
+
 /* Empty state */
 .no-results {
     text-align: center;
