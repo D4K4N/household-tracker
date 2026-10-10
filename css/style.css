@@ -9,6 +9,10 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     overflow: hidden;
     background-color: #f5f5f5;
+    touch-action: manipulation; /* Better touch responsiveness */
+    -webkit-touch-callout: none; /* Disable iOS callout */
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 #app {
@@ -18,7 +22,7 @@ body {
     flex-direction: column;
 }
 
-/* Search Container */
+/* Mobile-First Search Container */
 .search-container {
     position: absolute;
     top: 10px;
@@ -30,18 +34,20 @@ body {
 
 .search-input {
     width: 100%;
-    padding: 14px 16px;
-    font-size: 16px;
+    padding: 16px 20px;
+    font-size: 18px; /* Larger for mobile */
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     background: white;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     outline: none;
-    transition: box-shadow 0.2s;
+    transition: all 0.3s;
+    -webkit-appearance: none; /* Remove iOS styling */
 }
 
 .search-input:focus {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    transform: translateY(-2px);
 }
 
 .search-input:disabled {
@@ -49,72 +55,132 @@ body {
     color: #999;
 }
 
-/* Map Container */
+/* Map Container - Optimized for Touch */
 #map {
     flex: 1;
     width: 100%;
-    background: #1a1a1a; /* Dark background for satellite view */
-    touch-action: none; /* Enable smooth touch gestures */
+    background: #1a1a1a;
+    touch-action: pan-x pan-y; /* Allow panning but not zoom conflicts */
     cursor: grab;
+    position: relative;
 }
 
 #map:active {
     cursor: grabbing;
 }
 
-/* Map Controls */
-.map-controls {
-    position: absolute;
-    right: 10px;
-    bottom: 180px;
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
+/* Mobile-Optimized Control Buttons */
 .control-btn {
-    width: 48px;
-    height: 48px;
-    background: white;
+    width: 56px;
+    height: 56px;
+    background: #FFD700; /* Yellow background */
+    color: white;
     border: none;
     border-radius: 50%;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #333;
-    transition: all 0.2s;
+    font-size: 20px;
+    font-weight: bold;
+    transition: all 0.3s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
-.control-btn:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    transform: scale(1.05);
+.control-btn:hover,
+.control-btn:focus {
+    background: #FFC000;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
 }
 
 .control-btn:active {
     transform: scale(0.95);
+    background: #E6AC00;
 }
 
-/* GPS Status Bar */
+/* Action Buttons */
+.action-btn {
+    background: #FFD700; /* Yellow background */
+    color: white;
+    border: none;
+    padding: 16px 24px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-height: 48px; /* Minimum touch target */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.action-btn:hover,
+.action-btn:focus {
+    background: #FFC000;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.action-btn:active {
+    transform: translateY(0);
+    background: #E6AC00;
+}
+
+/* GPS Status Bar - Mobile optimized */
 .status-bar {
     position: absolute;
-    bottom: 70px;
-    left: 0;
-    right: 0;
-    background: white;
-    border-top: 1px solid #e0e0e0;
-    padding: 12px 16px;
+    bottom: 20px;
+    left: 10px;
+    right: 10px;
+    background: rgba(255, 215, 0, 0.95); /* Yellow with transparency */
+    border: none;
+    border-radius: 12px;
+    padding: 16px 20px;
     z-index: 999;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(10px);
 }
 
 .status-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
+    color: white;
+    font-weight: 500;
+}
+
+.status-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.status-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.gps-status {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.gps-accuracy,
+.gps-coordinates {
+    font-size: 11px;
+    opacity: 0.8;
+    font-family: monospace;
+}
 }
 
 .status-text {
@@ -566,6 +632,46 @@ body {
     background: #f5f5f5;
 }
 
+/* Search Results - Mobile optimized */
+.search-results {
+    position: absolute;
+    top: 68px; /* Just below search input */
+    left: 10px;
+    right: 10px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+}
+
+.search-results.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.search-result-item {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    min-height: 60px; /* Better touch target */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.search-result-item:hover,
+.search-result-item:active {
+    background: #f8f9fa;
+}
+
 .search-result-item:last-child {
     border-bottom: none;
 }
@@ -574,39 +680,52 @@ body {
     font-weight: 600;
     color: #333;
     margin-bottom: 4px;
+    font-size: 16px;
 }
 
 .search-result-details {
-    font-size: 12px;
+    font-size: 13px;
     color: #666;
+    line-height: 1.4;
 }
 
 .no-results {
-    padding: 20px;
+    padding: 24px 20px;
     text-align: center;
     color: #999;
+    font-size: 14px;
 }
 
-/* Menu Button */
+/* Menu Button - Mobile optimized */
 .menu-btn {
     position: absolute;
-    top: 70px;
+    top: 80px;
     right: 10px;
-    width: 48px;
-    height: 48px;
-    background: white;
+    width: 56px;
+    height: 56px;
+    background: #FFD700; /* Yellow background */
+    color: white;
     border: none;
     border-radius: 50%;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    font-size: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    font-size: 20px;
+    font-weight: bold;
     cursor: pointer;
     z-index: 1000;
-    transition: all 0.2s;
+    transition: all 0.3s;
+    touch-action: manipulation;
 }
 
-.menu-btn:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    transform: scale(1.05);
+.menu-btn:hover,
+.menu-btn:focus {
+    background: #FFC000;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.menu-btn:active {
+    transform: scale(0.95);
+    background: #E6AC00;
 }
 
 /* Side Menu */
@@ -1059,69 +1178,143 @@ body {
     line-height: 1.6;
 }
 
-/* Distance label styling for house-to-meter routes */
-.distance-label {
-    pointer-events: none !important;
-}
-
-.distance-label div {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    user-select: none;
-    pointer-events: none;
-}
-
-/* Map rotation controls */
+/* Map rotation controls - Mobile optimized */
 .rotation-control {
-    background: white;
-    border-radius: 4px;
-    box-shadow: 0 1px 5px rgba(0,0,0,0.3);
+    background: #FFD700;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    overflow: hidden;
 }
 
 .compass-button {
     display: block !important;
-    width: 30px;
-    height: 30px;
-    line-height: 30px;
+    width: 34px;
+    height: 34px;
+    line-height: 34px;
     text-align: center;
     text-decoration: none;
-    color: #333;
-    background: white;
-    border-radius: 4px 4px 0 0;
+    color: white !important;
+    background: #FFD700;
+    border-radius: 8px 8px 0 0;
+    font-weight: bold;
+    touch-action: manipulation;
 }
 
 .compass-button:hover,
+.compass-button:focus,
 .rotate-left-button:hover,
-.rotate-right-button:hover {
-    background: #f4f4f4;
-    color: #2196F3;
+.rotate-left-button:focus,
+.rotate-right-button:hover,
+.rotate-right-button:focus {
+    background: #FFC000 !important;
+    color: white !important;
+}
+
+.compass-button:active,
+.rotate-left-button:active,
+.rotate-right-button:active {
+    background: #E6AC00 !important;
 }
 
 .rotate-left-button,
 .rotate-right-button {
-    background: white;
+    background: #FFD700 !important;
+    color: white !important;
+    touch-action: manipulation;
 }
 
 .rotate-right-button {
-    border-radius: 0 0 4px 4px;
+    border-radius: 0 0 8px 8px !important;
 }
 
-/* Enhanced zoom controls styling */
+/* Enhanced zoom controls styling - Mobile optimized */
 .leaflet-control-zoom {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
     border: none !important;
+    border-radius: 8px !important;
+    overflow: hidden;
 }
 
 .leaflet-control-zoom a {
-    background: white !important;
-    color: #333 !important;
-    font-size: 18px !important;
+    background: #FFD700 !important;
+    color: white !important;
+    font-size: 20px !important;
     font-weight: bold !important;
     border: none !important;
+    width: 40px !important;
+    height: 40px !important;
+    line-height: 40px !important;
+    touch-action: manipulation;
 }
 
-.leaflet-control-zoom a:hover {
-    background: #f0f0f0 !important;
-    color: #2196F3 !important;
+.leaflet-control-zoom a:hover,
+.leaflet-control-zoom a:focus {
+    background: #FFC000 !important;
+    color: white !important;
+}
+
+.leaflet-control-zoom a:active {
+    background: #E6AC00 !important;
+}
+
+/* Mobile-first responsive design */
+@media (max-width: 768px) {
+    .search-input {
+        font-size: 16px; /* Prevent zoom on iOS */
+        padding: 18px 20px;
+    }
+    
+    .rotation-control {
+        width: 40px;
+    }
+    
+    .compass-button,
+    .rotate-left-button,
+    .rotate-right-button {
+        width: 40px !important;
+        height: 40px !important;
+        line-height: 40px !important;
+        font-size: 18px !important;
+    }
+    
+    .leaflet-control-zoom a {
+        width: 44px !important;
+        height: 44px !important;
+        line-height: 44px !important;
+        font-size: 22px !important;
+    }
+}
+
+/* Improve touch targets for accessibility */
+.leaflet-control-container .leaflet-control {
+    margin-bottom: 12px;
+}
+
+/* Better popup styling for mobile */
+.leaflet-popup-content-wrapper {
+    border-radius: 12px !important;
+    padding: 8px !important;
+}
+
+.leaflet-popup-content {
+    margin: 12px 16px !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+}
+
+/* Distance label styling for house-to-meter routes */
+.distance-label {
+    pointer-events: none !important;
+    z-index: 1000;
+}
+
+.distance-label div {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    user-select: none;
+    pointer-events: none;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
 /* Empty state */

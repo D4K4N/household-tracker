@@ -553,39 +553,67 @@ class MapManager {
     }
 
     /**
-     * Enable map rotation functionality
+     * Enable map rotation functionality - Mobile optimized
      */
     enableMapRotation() {
         this.mapRotation = 0;
         this.isRotating = false;
-        this.rotationStartX = 0;
-        this.rotationStartAngle = 0;
         
         // Add rotation event listeners
         const mapContainer = this.map.getContainer();
         
-        // Two-finger rotation for touch devices
+        // Enhanced two-finger rotation for touch devices
         let touches = [];
         let initialAngle = 0;
+        let rotationSensitivity = 0.8; // Adjust sensitivity for better control
         
         mapContainer.addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
+                e.preventDefault(); // Prevent default zoom behavior during rotation
                 touches = Array.from(e.touches);
                 initialAngle = this.getTouchAngle(touches[0], touches[1]);
                 this.rotationStartAngle = this.mapRotation;
+                this.isRotating = true;
+                
+                // Disable map dragging during rotation
+                this.map.dragging.disable();
             }
-        });
+        }, { passive: false });
         
         mapContainer.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2 && touches.length === 2) {
+            if (e.touches.length === 2 && touches.length === 2 && this.isRotating) {
                 e.preventDefault();
                 const currentAngle = this.getTouchAngle(e.touches[0], e.touches[1]);
-                const angleDiff = currentAngle - initialAngle;
-                this.rotateMap(this.rotationStartAngle + angleDiff);
+                let angleDiff = (currentAngle - initialAngle) * rotationSensitivity;
+                
+                // Smooth out small movements to prevent jitter
+                if (Math.abs(angleDiff) > 2) {
+                    this.rotateMap(this.rotationStartAngle + angleDiff);
+                }
+            }
+        }, { passive: false });
+        
+        mapContainer.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) {
+                this.isRotating = false;
+                touches = [];
+                
+                // Re-enable map dragging
+                setTimeout(() => {
+                    this.map.dragging.enable();
+                }, 100);
             }
         });
         
-        // Keyboard rotation (Shift + Arrow keys)
+        // Single finger panning (one finger to move map)
+        mapContainer.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1 && !this.isRotating) {
+                // Allow normal panning with one finger
+                this.map.dragging.enable();
+            }
+        });
+        
+        // Keyboard rotation (for desktop testing)
         document.addEventListener('keydown', (e) => {
             if (e.shiftKey) {
                 if (e.key === 'ArrowLeft') {
@@ -654,53 +682,59 @@ class MapManager {
                 // Compass button (shows current rotation, click to reset)
                 this.compassButton = L.DomUtil.create('a', 'compass-button', container);
                 this.compassButton.href = '#';
-                this.compassButton.title = 'Reset rotation (Shift + ↑)';
+                this.compassButton.title = 'Reset rotation';
                 this.compassButton.innerHTML = `
                     <div style="
-                        width: 30px;
-                        height: 30px;
+                        width: 34px;
+                        height: 34px;
                         position: relative;
                         display: flex;
                         align-items: center;
                         justify-content: center;
                         font-size: 16px;
+                        font-weight: bold;
+                        color: white;
                     ">
-                        <span style="transform: rotate(0deg); transition: transform 0.3s ease;">🧭</span>
+                        <span style="transform: rotate(0deg); transition: transform 0.3s ease;">N</span>
                     </div>
                 `;
                 
                 // Rotate left button
                 this.leftButton = L.DomUtil.create('a', 'rotate-left-button', container);
                 this.leftButton.href = '#';
-                this.leftButton.title = 'Rotate left (Shift + ←)';
-                this.leftButton.innerHTML = '↶';
+                this.leftButton.title = 'Rotate left';
+                this.leftButton.innerHTML = '↺';
                 this.leftButton.style.cssText = `
                     display: block;
-                    width: 30px;
-                    height: 30px;
-                    line-height: 30px;
+                    width: 34px;
+                    height: 34px;
+                    line-height: 34px;
                     text-align: center;
-                    font-size: 18px;
+                    font-size: 20px;
+                    font-weight: bold;
                     text-decoration: none;
-                    color: #333;
-                    border-top: 1px solid #ccc;
+                    color: white;
+                    border-top: 2px solid rgba(255,255,255,0.3);
+                    background: #FFD700;
                 `;
                 
                 // Rotate right button
                 this.rightButton = L.DomUtil.create('a', 'rotate-right-button', container);
                 this.rightButton.href = '#';
-                this.rightButton.title = 'Rotate right (Shift + →)';
-                this.rightButton.innerHTML = '↷';
+                this.rightButton.title = 'Rotate right';
+                this.rightButton.innerHTML = '↻';
                 this.rightButton.style.cssText = `
                     display: block;
-                    width: 30px;
-                    height: 30px;
-                    line-height: 30px;
+                    width: 34px;
+                    height: 34px;
+                    line-height: 34px;
                     text-align: center;
-                    font-size: 18px;
+                    font-size: 20px;
+                    font-weight: bold;
                     text-decoration: none;
-                    color: #333;
-                    border-top: 1px solid #ccc;
+                    color: white;
+                    border-top: 2px solid rgba(255,255,255,0.3);
+                    background: #FFD700;
                 `;
                 
                 // Prevent map events on control
@@ -836,15 +870,15 @@ class MapManager {
         }
         
         setTimeout(() => {
-            const helpText = `🗺️ Enhanced Map Controls:
+            const helpText = `Enhanced Map Controls:
 
-🔄 Rotation:
+Rotation:
 • Two fingers: Rotate on touch devices
-• Shift + ← →: Rotate with keyboard
-• Shift + ↑: Reset rotation
-• 🧭 button: Reset rotation
+• Shift + Left/Right arrows: Rotate with keyboard
+• Shift + Up arrow: Reset rotation
+• N button: Reset rotation
 
-🔍 Zoom:
+Zoom:
 • + / -: Zoom in/out
 • 0: Reset to center
 • Ctrl + scroll: Fine zoom control

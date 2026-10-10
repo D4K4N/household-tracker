@@ -202,35 +202,37 @@ class HouseholdManager {
     }
 
     /**
-     * Create custom icon for household marker
+     * Create custom icon for household marker - Mobile optimized
      */
     createHouseholdIcon() {
         return L.divIcon({
             className: 'household-marker',
             html: `
                 <div style="
-                    width: 30px;
-                    height: 30px;
-                    background: #ff4444;
-                    border: 3px solid white;
+                    width: 36px;
+                    height: 36px;
+                    background: #FF4444;
+                    border: 4px solid white;
                     border-radius: 50% 50% 50% 0;
                     transform: rotate(-45deg);
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    box-shadow: 0 3px 10px rgba(0,0,0,0.4);
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    position: relative;
                 ">
-                    <span style="
+                    <div style="
                         transform: rotate(45deg);
                         color: white;
-                        font-size: 16px;
+                        font-size: 18px;
                         font-weight: bold;
-                    ">📍</span>
+                        text-align: center;
+                    ">H</div>
                 </div>
             `,
-            iconSize: [30, 30],
-            iconAnchor: [15, 30],
-            popupAnchor: [0, -30]
+            iconSize: [36, 36],
+            iconAnchor: [18, 36],
+            popupAnchor: [0, -36]
         });
     }
 
