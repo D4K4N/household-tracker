@@ -150,9 +150,12 @@ class HouseholdDatabase {
     }
 
     async _seal(obj) {
-        if (!window.appVault || !window.appVault.isUnlocked()) {
-            throw new Error('App is locked');
+        // If vault is not set up or not unlocked, store as plaintext
+        if (!window.appVault || !window.appVault.isSetup() || !window.appVault.isUnlocked()) {
+            return obj; // Store unencrypted
         }
+        
+        // Encrypt if vault is unlocked
         const id = obj.id;
         const copy = { ...obj };
         delete copy.id;
@@ -166,9 +169,11 @@ class HouseholdDatabase {
 
     async _unseal(record) {
         if (!record) return record;
-        if (!record._enc) return record;
+        if (!record._enc) return record; // Already plaintext
+        
+        // Decrypt if encrypted
         if (!window.appVault || !window.appVault.isUnlocked()) {
-            throw new Error('App is locked');
+            throw new Error('App is locked - cannot read encrypted data');
         }
         const data = await window.appVault.decryptJson(record.payload);
         return { ...data, id: record.id };
