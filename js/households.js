@@ -100,6 +100,12 @@ class HouseholdManager {
         try {
             const household = await this.db.addHousehold(householdData);
             this.households.push(household);
+            
+            // Show markers if in clean mode (ensure cluster is on map)
+            if (!this.isVisible) {
+                this.show();
+            }
+            
             this.createMarker(household);
             return household;
         } catch (error) {

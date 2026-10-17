@@ -93,6 +93,12 @@ class WaterMeterLocationManager {
         try {
             const location = await this.db.addWaterMeterLocation(locationData);
             this.locations.push(location);
+            
+            // Show markers if hidden (ensure cluster is on map)
+            if (!this.isVisible) {
+                this.show();
+            }
+            
             await this.createMarker(location);
             return location;
         } catch (error) {
