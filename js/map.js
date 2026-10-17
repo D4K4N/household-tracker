@@ -67,9 +67,8 @@ class MapManager {
             tapTolerance: 15
         }).setView(this.diclumCenter, this.defaultZoom);
 
-        // Add rotation capability
-        this.mapRotation = 0; // Current map rotation in degrees
-        this.enableMapRotation();
+        // Initialize rotation (will be set up after map loads)
+        this.mapRotation = 0;
 
         // Define base layers with higher quality tiles
         this.streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -146,6 +145,9 @@ class MapManager {
         
         // Enhanced zoom functionality
         this.enhanceZoomControls();
+        
+        // Enable rotation after everything is set up
+        this.enableMapRotation();
 
         this.isInitialized = true;
         console.log('Map initialized - Barangay Diclum, Manolo Fortich');
@@ -553,7 +555,7 @@ class MapManager {
     }
 
     /**
-     * Enable map rotation functionality - Mobile optimized
+     * Enable map rotation functionality - Simplified for mobile
      */
     enableMapRotation() {
         this.mapRotation = 0;
@@ -562,56 +564,37 @@ class MapManager {
         // Add rotation event listeners
         const mapContainer = this.map.getContainer();
         
-        // Enhanced two-finger rotation for touch devices
+        // Simplified two-finger rotation for mobile
         let touches = [];
         let initialAngle = 0;
-        let rotationSensitivity = 0.8; // Adjust sensitivity for better control
         
         mapContainer.addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
-                e.preventDefault(); // Prevent default zoom behavior during rotation
                 touches = Array.from(e.touches);
                 initialAngle = this.getTouchAngle(touches[0], touches[1]);
                 this.rotationStartAngle = this.mapRotation;
                 this.isRotating = true;
-                
-                // Disable map dragging during rotation
-                this.map.dragging.disable();
             }
-        }, { passive: false });
+        }, { passive: true });
         
         mapContainer.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2 && touches.length === 2 && this.isRotating) {
-                e.preventDefault();
+            if (e.touches.length === 2 && this.isRotating) {
                 const currentAngle = this.getTouchAngle(e.touches[0], e.touches[1]);
-                let angleDiff = (currentAngle - initialAngle) * rotationSensitivity;
+                let angleDiff = (currentAngle - initialAngle) * 0.5; // Reduced sensitivity
                 
-                // Smooth out small movements to prevent jitter
-                if (Math.abs(angleDiff) > 2) {
+                // Only rotate if movement is significant
+                if (Math.abs(angleDiff) > 5) {
                     this.rotateMap(this.rotationStartAngle + angleDiff);
                 }
             }
-        }, { passive: false });
+        }, { passive: true });
         
         mapContainer.addEventListener('touchend', (e) => {
             if (e.touches.length < 2) {
                 this.isRotating = false;
                 touches = [];
-                
-                // Re-enable map dragging
-                setTimeout(() => {
-                    this.map.dragging.enable();
-                }, 100);
             }
-        });
-        
-        // Single finger panning (one finger to move map)
-        mapContainer.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 1 && !this.isRotating) {
-                // Allow normal panning with one finger
-                this.map.dragging.enable();
-            }
-        });
+        }, { passive: true });
         
         // Keyboard rotation (for desktop testing)
         document.addEventListener('keydown', (e) => {
