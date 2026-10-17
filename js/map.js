@@ -555,62 +555,70 @@ class MapManager {
     }
 
     /**
-     * Enable map rotation functionality - Simplified for mobile
+     * Enable map rotation functionality - Fixed for mobile
      */
     enableMapRotation() {
         this.mapRotation = 0;
         this.isRotating = false;
+        this.rotationEnabled = false; // Start disabled, enable after first successful detection
         
-        // Add rotation event listeners
         const mapContainer = this.map.getContainer();
         
-        // Simplified two-finger rotation for mobile
-        let touches = [];
+        // Two-finger rotation state
+        let touch1 = null;
+        let touch2 = null;
         let initialAngle = 0;
+        let startRotation = 0;
         
         mapContainer.addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
-                touches = Array.from(e.touches);
-                initialAngle = this.getTouchAngle(touches[0], touches[1]);
-                this.rotationStartAngle = this.mapRotation;
+                // Disable map dragging during two-finger gesture
+                this.map.dragging.disable();
+                
+                touch1 = e.touches[0];
+                touch2 = e.touches[1];
+                
+                initialAngle = this.getTouchAngle(touch1, touch2);
+                startRotation = this.mapRotation;
                 this.isRotating = true;
+                this.rotationEnabled = true;
+                
+                console.log('Two-finger rotation started');
             }
         }, { passive: true });
         
         mapContainer.addEventListener('touchmove', (e) => {
             if (e.touches.length === 2 && this.isRotating) {
-                const currentAngle = this.getTouchAngle(e.touches[0], e.touches[1]);
-                let angleDiff = (currentAngle - initialAngle) * 0.5; // Reduced sensitivity
+                touch1 = e.touches[0];
+                touch2 = e.touches[1];
                 
-                // Only rotate if movement is significant
-                if (Math.abs(angleDiff) > 5) {
-                    this.rotateMap(this.rotationStartAngle + angleDiff);
-                }
+                const currentAngle = this.getTouchAngle(touch1, touch2);
+                const angleDiff = currentAngle - initialAngle;
+                
+                // Apply rotation with smooth sensitivity
+                this.rotateMap(startRotation + angleDiff);
             }
         }, { passive: true });
         
         mapContainer.addEventListener('touchend', (e) => {
             if (e.touches.length < 2) {
                 this.isRotating = false;
-                touches = [];
+                touch1 = null;
+                touch2 = null;
+                
+                // Re-enable dragging after rotation ends
+                this.map.dragging.enable();
+                
+                console.log('Rotation ended at ' + this.mapRotation.toFixed(1) + '°');
             }
         }, { passive: true });
         
-        // Keyboard rotation (for desktop testing)
-        document.addEventListener('keydown', (e) => {
-            if (e.shiftKey) {
-                if (e.key === 'ArrowLeft') {
-                    e.preventDefault();
-                    this.rotateMap(this.mapRotation - 15);
-                } else if (e.key === 'ArrowRight') {
-                    e.preventDefault();
-                    this.rotateMap(this.mapRotation + 15);
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    this.resetRotation();
-                }
-            }
-        });
+        mapContainer.addEventListener('touchcancel', (e) => {
+            this.isRotating = false;
+            touch1 = null;
+            touch2 = null;
+            this.map.dragging.enable();
+        }, { passive: true });
     }
     
     /**

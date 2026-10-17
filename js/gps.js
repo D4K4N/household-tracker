@@ -56,9 +56,10 @@ class GPSTracker {
     }
     
     /**
-     * Start compass/heading tracking
+     * Start compass/heading tracking - Improved for Android
      */
     startCompassTracking() {
+        // Try absolute orientation first (most accurate)
         if ('ondeviceorientationabsolute' in window) {
             window.addEventListener('deviceorientationabsolute', (event) => {
                 if (event.absolute && event.alpha !== null) {
@@ -68,19 +69,54 @@ class GPSTracker {
                     }
                 }
             });
-        } else if ('ondeviceorientation' in window) {
-            window.addEventListener('deviceorientation', (event) => {
-                if (event.alpha !== null) {
-                    // Compass heading (0 = North, 90 = East, 180 = South, 270 = West)
-                    let heading = event.webkitCompassHeading || (360 - event.alpha);
-                    if (this.callbacks.onHeadingUpdate) {
-                        this.callbacks.onHeadingUpdate(heading);
-                    }
-                }
-            });
+            console.log('Using absolute device orientation for compass');
+        } 
+        // Fallback to regular orientation
+        else if ('DeviceOrientationEvent' in window) {
+            // Request permission on iOS 13+
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            this.setupOrientationListener();
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                // Android or older iOS
+                this.setupOrientationListener();
+            }
         } else {
             console.log('Device orientation not supported');
         }
+    }
+    
+    /**
+     * Setup orientation listener
+     */
+    setupOrientationListener() {
+        window.addEventListener('deviceorientation', (event) => {
+            if (event.alpha !== null) {
+                // Use webkitCompassHeading if available (iOS), otherwise calculate from alpha
+                let heading;
+                
+                if (event.webkitCompassHeading !== undefined) {
+                    // iOS provides true heading
+                    heading = event.webkitCompassHeading;
+                } else if (event.absolute) {
+                    // True north heading
+                    heading = 360 - event.alpha;
+                } else {
+                    // Magnetic north (most Android devices)
+                    heading = 360 - event.alpha;
+                }
+                
+                if (this.callbacks.onHeadingUpdate) {
+                    this.callbacks.onHeadingUpdate(heading);
+                }
+            }
+        });
+        console.log('Device orientation listener activated');
     }
 
     /**
