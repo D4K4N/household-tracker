@@ -292,16 +292,23 @@ class PrinterService {
     </div>
     
     <div class="barcode-section">
-        <div class="barcode-title">Payment Code</div>
+        <div class="barcode-title">Payment Barcode</div>
         <div class="barcode-container">
-            <canvas id="barcode" width="200" height="50"></canvas>
+            <svg id="barcode"></svg>
         </div>
         <div class="barcode-number">${this.generatePaymentCode(bill)}</div>
+        <div style="font-size: 9px; margin-top: 2mm; color: #666;">
+            Scan this at cashier to pay your bill
+        </div>
     </div>
     
     <div class="reminders">
         <div class="reminders-title">Reminders</div>
         ${this.formatReminders(reminders)}
+    </div>
+    
+    <div style="text-align: center; margin-top: 4mm; font-weight: bold;">
+        Thank you!
     </div>
 </body>
 </html>
@@ -382,11 +389,11 @@ Kindly report leaks or acts of vandalism on our pipeline.`;
     }
 
     /**
-     * Open print preview
+     * Open print preview with barcode
      */
     openPrintPreview(htmlContent, paymentCode) {
         // Create a new window for print preview
-        const printWindow = window.open('', '_blank', 'width=400,height=600');
+        const printWindow = window.open('', '_blank', 'width=400,height=700');
         
         if (!printWindow) {
             alert('Please allow popups to print bills');
@@ -399,16 +406,34 @@ Kindly report leaks or acts of vandalism on our pipeline.`;
         // Wait for content to load, then generate barcode and print
         printWindow.onload = () => {
             setTimeout(() => {
-                const canvas = printWindow.document.getElementById('barcode');
-                if (canvas && paymentCode) {
-                    this.generateBarcode(canvas, paymentCode);
+                // Generate barcode using JsBarcode library
+                const barcodeElement = printWindow.document.getElementById('barcode');
+                if (barcodeElement && paymentCode && typeof JsBarcode !== 'undefined') {
+                    try {
+                        JsBarcode(barcodeElement, paymentCode, {
+                            format: 'CODE128',
+                            width: 2,
+                            height: 50,
+                            displayValue: false,
+                            margin: 5
+                        });
+                    } catch (error) {
+                        console.error('Barcode generation error:', error);
+                        // Fallback: show text only
+                        barcodeElement.innerHTML = `<div style="padding: 10px; border: 2px solid #000; font-family: monospace;">${paymentCode}</div>`;
+                    }
+                } else {
+                    // No JsBarcode library, show text barcode
+                    if (barcodeElement) {
+                        barcodeElement.innerHTML = `<div style="padding: 10px; border: 2px solid #000; font-family: monospace; font-size: 10px;">${paymentCode}</div>`;
+                    }
                 }
                 
                 // Print after barcode is generated
                 setTimeout(() => {
                     printWindow.print();
-                }, 100);
-            }, 250);
+                }, 200);
+            }, 300);
         };
     }
 
