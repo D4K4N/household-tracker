@@ -149,6 +149,69 @@ class HouseholdDatabase {
         });
     }
 
+    async _seal(obj) {
+        if (!window.appVault || !window.appVault.isUnlocked()) {
+            throw new Error('App is locked');
+        }
+        const id = obj.id;
+        const copy = { ...obj };
+        delete copy.id;
+        delete copy._enc;
+        delete copy.payload;
+        const payload = await window.appVault.encryptJson(copy);
+        const sealed = { _enc: true, payload };
+        if (id !== undefined && id !== null) sealed.id = id;
+        return sealed;
+    }
+
+    async _unseal(record) {
+        if (!record) return record;
+        if (!record._enc) return record;
+        if (!window.appVault || !window.appVault.isUnlocked()) {
+            throw new Error('App is locked');
+        }
+        const data = await window.appVault.decryptJson(record.payload);
+        return { ...data, id: record.id };
+    }
+
+    async _unsealAll(records) {
+        const out = [];
+        for (const r of records || []) {
+            out.push(await this._unseal(r));
+        }
+        return out;
+    }
+
+    async migratePlaintextToEncrypted() {
+        const stores = [
+            this.storeName,
+            this.routeStoreName,
+            this.waterMeterLocationStoreName,
+            this.waterMeterStoreName,
+            this.billingRecordStoreName
+        ];
+        for (const name of stores) {
+            if (!this.db.objectStoreNames.contains(name)) continue;
+            const rows = await new Promise((resolve, reject) => {
+                const tx = this.db.transaction([name], 'readonly');
+                const req = tx.objectStore(name).getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+            for (const row of rows) {
+                if (row && !row._enc) {
+                    const sealed = await this._seal(row);
+                    await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction([name], 'readwrite');
+                        const req = tx.objectStore(name).put(sealed);
+                        req.onsuccess = () => resolve();
+                        req.onerror = () => reject(req.error);
+                    });
+                }
+            }
+        }
+    }
+
     /**
      * Run post-upgrade data migrations
      */
@@ -345,38 +408,33 @@ class HouseholdDatabase {
      * Add a new household
      */
     async addHousehold(householdData) {
+        const household = {
+            surname: householdData.surname || '',
+            firstName: householdData.firstName || '',
+            fullName: `${householdData.firstName} ${householdData.surname}`.trim(),
+            address: householdData.address || '',
+            meterNumber: householdData.meterNumber || '',
+            contactNumber: householdData.contactNumber || '',
+            notes: householdData.notes || '',
+            waterMeterLocationId: householdData.waterMeterLocationId || null,
+            latitude: householdData.latitude,
+            longitude: householdData.longitude,
+            gpsAccuracy: householdData.gpsAccuracy || null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        const sealed = await this._seal(household);
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction([this.storeName], 'readwrite');
             const objectStore = transaction.objectStore(this.storeName);
-
-            // Prepare household object
-            const household = {
-                surname: householdData.surname || '',
-                firstName: householdData.firstName || '',
-                fullName: `${householdData.firstName} ${householdData.surname}`.trim(),
-                address: householdData.address || '',
-                meterNumber: householdData.meterNumber || '',
-                contactNumber: householdData.contactNumber || '',
-                notes: householdData.notes || '',
-                latitude: householdData.latitude,
-                longitude: householdData.longitude,
-                gpsAccuracy: householdData.gpsAccuracy || null,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-
-            const request = objectStore.add(household);
+            const request = objectStore.add(sealed);
 
             request.onsuccess = () => {
                 household.id = request.result;
-                console.log('Household added:', household);
                 resolve(household);
             };
 
-            request.onerror = () => {
-                console.error('Error adding household');
-                reject(request.error);
-            };
+            request.onerror = () => reject(request.error);
         });
     }
 
@@ -389,8 +447,12 @@ class HouseholdDatabase {
             const objectStore = transaction.objectStore(this.storeName);
             const request = objectStore.getAll();
 
-            request.onsuccess = () => {
-                resolve(request.result);
+            request.onsuccess = async () => {
+                try {
+                    resolve(await this._unsealAll(request.result));
+                } catch (e) {
+                    reject(e);
+                }
             };
 
             request.onerror = () => {
@@ -408,8 +470,12 @@ class HouseholdDatabase {
             const objectStore = transaction.objectStore(this.storeName);
             const request = objectStore.get(id);
 
-            request.onsuccess = () => {
-                resolve(request.result);
+            request.onsuccess = async () => {
+                try {
+                    resolve(await this._unseal(request.result));
+                } catch (e) {
+                    reject(e);
+                }
             };
 
             request.onerror = () => {
@@ -422,39 +488,18 @@ class HouseholdDatabase {
      * Update household
      */
     async updateHousehold(id, updates) {
+        const household = await this.getHousehold(id);
+        if (!household) throw new Error('Household not found');
+        Object.assign(household, updates);
+        household.fullName = `${household.firstName} ${household.surname}`.trim();
+        household.updatedAt = new Date().toISOString();
+        const sealed = await this._seal(household);
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction([this.storeName], 'readwrite');
             const objectStore = transaction.objectStore(this.storeName);
-            const getRequest = objectStore.get(id);
-
-            getRequest.onsuccess = () => {
-                const household = getRequest.result;
-                
-                if (!household) {
-                    reject(new Error('Household not found'));
-                    return;
-                }
-
-                // Update fields
-                Object.assign(household, updates);
-                household.fullName = `${household.firstName} ${household.surname}`.trim();
-                household.updatedAt = new Date().toISOString();
-
-                const updateRequest = objectStore.put(household);
-
-                updateRequest.onsuccess = () => {
-                    console.log('Household updated:', household);
-                    resolve(household);
-                };
-
-                updateRequest.onerror = () => {
-                    reject(updateRequest.error);
-                };
-            };
-
-            getRequest.onerror = () => {
-                reject(getRequest.error);
-            };
+            const updateRequest = objectStore.put(sealed);
+            updateRequest.onsuccess = () => resolve(household);
+            updateRequest.onerror = () => reject(updateRequest.error);
         });
     }
 
@@ -490,13 +535,16 @@ class HouseholdDatabase {
         }
 
         return allHouseholds.filter(household => {
-            return (
-                household.surname.toLowerCase().includes(searchTerm) ||
-                household.firstName.toLowerCase().includes(searchTerm) ||
-                household.fullName.toLowerCase().includes(searchTerm) ||
-                household.address.toLowerCase().includes(searchTerm) ||
-                household.meterNumber.toLowerCase().includes(searchTerm)
-            );
+            const blob = [
+                household.surname,
+                household.firstName,
+                household.fullName,
+                household.address,
+                household.meterNumber,
+                household.contactNumber,
+                household.notes
+            ].join(' ').toLowerCase();
+            return blob.includes(searchTerm);
         });
     }
 
@@ -553,28 +601,26 @@ class HouseholdDatabase {
      * Add a new water meter location
      */
     async addWaterMeterLocation(locationData) {
+        const location = {
+            label: locationData.label || '',
+            ownerName: locationData.ownerName || '',
+            householdId: locationData.householdId || null,
+            latitude: locationData.latitude,
+            longitude: locationData.longitude,
+            gpsAccuracy: locationData.gpsAccuracy || null,
+            notes: locationData.notes || '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        const sealed = await this._seal(location);
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction([this.waterMeterLocationStoreName], 'readwrite');
             const store = transaction.objectStore(this.waterMeterLocationStoreName);
-
-            const location = {
-                label: locationData.label || '',
-                latitude: locationData.latitude,
-                longitude: locationData.longitude,
-                gpsAccuracy: locationData.gpsAccuracy || null,
-                notes: locationData.notes || '',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-
-            const request = store.add(location);
-
+            const request = store.add(sealed);
             request.onsuccess = () => {
                 location.id = request.result;
-                console.log('Water meter location added:', location);
                 resolve(location);
             };
-
             request.onerror = () => reject(request.error);
         });
     }
@@ -588,7 +634,10 @@ class HouseholdDatabase {
             const store = transaction.objectStore(this.waterMeterLocationStoreName);
             const request = store.getAll();
 
-            request.onsuccess = () => resolve(request.result);
+            request.onsuccess = async () => {
+                try { resolve(await this._unsealAll(request.result)); }
+                catch (e) { reject(e); }
+            };
             request.onerror = () => reject(request.error);
         });
     }
@@ -602,7 +651,10 @@ class HouseholdDatabase {
             const store = transaction.objectStore(this.waterMeterLocationStoreName);
             const request = store.get(id);
 
-            request.onsuccess = () => resolve(request.result);
+            request.onsuccess = async () => {
+                try { resolve(await this._unseal(request.result)); }
+                catch (e) { reject(e); }
+            };
             request.onerror = () => reject(request.error);
         });
     }
@@ -611,27 +663,17 @@ class HouseholdDatabase {
      * Update water meter location
      */
     async updateWaterMeterLocation(id, updates) {
+        const location = await this.getWaterMeterLocation(id);
+        if (!location) throw new Error('Location not found');
+        Object.assign(location, updates);
+        location.updatedAt = new Date().toISOString();
+        const sealed = await this._seal(location);
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction([this.waterMeterLocationStoreName], 'readwrite');
             const store = transaction.objectStore(this.waterMeterLocationStoreName);
-            const getRequest = store.get(id);
-
-            getRequest.onsuccess = () => {
-                const location = getRequest.result;
-                if (!location) {
-                    reject(new Error('Location not found'));
-                    return;
-                }
-
-                Object.assign(location, updates);
-                location.updatedAt = new Date().toISOString();
-
-                const updateRequest = store.put(location);
-                updateRequest.onsuccess = () => resolve(location);
-                updateRequest.onerror = () => reject(updateRequest.error);
-            };
-
-            getRequest.onerror = () => reject(getRequest.error);
+            const updateRequest = store.put(sealed);
+            updateRequest.onsuccess = () => resolve(location);
+            updateRequest.onerror = () => reject(updateRequest.error);
         });
     }
 
