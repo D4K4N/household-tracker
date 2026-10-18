@@ -165,9 +165,7 @@ body {
     transform: scale(0.95);
     background: #E6AC00;
 }
-    background: #E6AC00;
 
-    
 /* Action Buttons */
 .action-btn {
     background: #FFD700; /* Yellow background */
@@ -1403,7 +1401,7 @@ body {
     .bottom-action {
         bottom: calc(env(safe-area-inset-bottom, 10px) + 80px);
     }
-}
+
 
 /* Improve touch targets for accessibility */
 .leaflet-control-container .leaflet-control {
