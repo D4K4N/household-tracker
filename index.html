@@ -304,6 +304,9 @@
 
                 <div class="menu-section">
                     <div class="menu-section-title">DATA</div>
+                    <button class="menu-item" onclick="window.billingSettingsManager?.openSettings()">
+                        ⚙️ Billing Settings
+                    </button>
                     <button class="menu-item" onclick="showDatabaseStats()">
                         📊 Database Statistics
                     </button>
@@ -679,6 +682,88 @@
         </div>
     </div>
 
+    <!-- Billing Settings Modal -->
+    <div id="billingSettingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Billing Settings</h2>
+                <button class="close-btn" onclick="window.billingSettingsManager?.closeSettings()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Warning for temporary rates -->
+                <div id="tempRatesWarning" style="background: #fff3cd; border: 2px solid #ffc107; padding: 12px; margin-bottom: 16px; border-radius: 8px;">
+                    <strong>⚠️ TEMPORARY DEVELOPMENT RATES</strong>
+                    <p style="margin: 8px 0 0 0; font-size: 13px;">
+                        The current rates are temporary placeholders. Please configure official Dicklum Water Association rates and mark them as verified.
+                    </p>
+                </div>
+
+                <form id="billingSettingsForm">
+                    <!-- Minimum Charge -->
+                    <div class="form-group">
+                        <label for="settingMinimumCharge">Minimum Monthly Charge (PHP)</label>
+                        <input type="number" id="settingMinimumCharge" step="0.01" min="0" required />
+                        <small>Base charge regardless of consumption</small>
+                    </div>
+
+                    <!-- Included Consumption -->
+                    <div class="form-group">
+                        <label for="settingIncludedConsumption">Included Consumption (m³)</label>
+                        <input type="number" id="settingIncludedConsumption" step="0.01" min="0" required />
+                        <small>Cubic meters included in minimum charge</small>
+                    </div>
+
+                    <!-- Excess Rate -->
+                    <div class="form-group">
+                        <label for="settingExcessRate">Excess Rate per m³ (PHP)</label>
+                        <input type="number" id="settingExcessRate" step="0.01" min="0" required />
+                        <small>Charge per cubic meter above included consumption</small>
+                    </div>
+
+                    <!-- Due Days -->
+                    <div class="form-group">
+                        <label for="settingDueDays">Due Days After Reading</label>
+                        <input type="number" id="settingDueDays" min="1" max="90" required />
+                        <small>Number of days until bill is due</small>
+                    </div>
+
+                    <!-- Disconnection Days -->
+                    <div class="form-group">
+                        <label for="settingDisconnectionDays">Disconnection Days After Due</label>
+                        <input type="number" id="settingDisconnectionDays" min="1" max="90" required />
+                        <small>Number of days after due date until disconnection notice</small>
+                    </div>
+
+                    <!-- Rates Verified Checkbox -->
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="settingRatesVerified" />
+                            <span><strong>Mark these rates as officially verified</strong></span>
+                        </label>
+                        <small style="color: #d32f2f;">
+                            Only check this box after confirming rates with Dicklum Water Association management
+                        </small>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="window.billingSettingsManager?.restoreDefaults()">
+                            Restore Defaults
+                        </button>
+                        <button type="button" class="btn-info" onclick="window.billingSettingsManager?.testCalculation()">
+                            Test Calculation
+                        </button>
+                        <button type="button" class="btn-secondary" onclick="window.billingSettingsManager?.closeSettings()">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn-primary" onclick="window.billingSettingsManager?.saveSettings()">
+                            Save Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
@@ -699,6 +784,7 @@
     <script src="js/waterMeters.js"></script>
     <script src="js/meterReading.js"></script>
     <script src="js/billing.js"></script>
+    <script src="js/billingSettings.js"></script>
     <script src="js/printer.js"></script>
     <script src="js/routes.js"></script>
     <script src="js/offlineMaps.js"></script>

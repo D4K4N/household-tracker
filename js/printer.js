@@ -55,264 +55,163 @@ class PrinterService {
     }
 
     /**
-     * Generate bill HTML matching the template image
+     * Generate bill HTML matching the long thermal receipt layout
+     * Includes detailed billing breakdown with minimum + excess calculation
      */
     generateBillHTML(bill, reminders) {
         // Format billing period
-        const [year, month] = bill.billingPeriod.split('-');
+        const yearMonth = bill.billingPeriod.split('-');
+        const year = yearMonth[0];
+        const month = yearMonth[1];
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                           'July', 'August', 'September', 'October', 'November', 'December'];
-        const billingPeriodText = `${monthNames[parseInt(month) - 1]} ${year}`;
+        const billingPeriodText = monthNames[parseInt(month) - 1] + ' ' + year;
 
         // Format dates
         const dueDate = new Date(bill.dueDate).toLocaleDateString('en-PH', {
             year: 'numeric', month: 'long', day: 'numeric'
         });
-        const disconnectionDate = new Date(bill.disconnectionDate).toLocaleDateString('en-PH', {
-            year: 'numeric', month: 'long', day: 'numeric'
-        });
+        
+        // Format disconnection date if applicable
+        let disconnectionInfo = '';
+        if (bill.disconnectionDate && bill.totalDue > bill.currentBill) {
+            const disconnectionDate = new Date(bill.disconnectionDate).toLocaleDateString('en-PH', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            });
+            disconnectionInfo = '<div class="info-row"><span class="info-label">Disconnection Date:</span><span class="info-value">' + disconnectionDate + '</span></div>';
+        }
 
         // Get account info
-        const accountName = bill.householdData?.fullName || bill.meterData?.ownerName || 'N/A';
-        const accountNumber = bill.meterData?.meterNumber || 'N/A';
-        const address = bill.householdData?.address || 'N/A';
-        const classification = bill.householdData?.classification || 'Residential';
+        const accountName = (bill.householdData && bill.householdData.fullName) || (bill.meterData && bill.meterData.ownerName) || 'N/A';
+        const accountNumber = (bill.meterData && bill.meterData.meterNumber) || bill.billReference || 'N/A';
+        const address = (bill.householdData && bill.householdData.address) || (bill.locationData && bill.locationData.label) || 'N/A';
+        const classification = (bill.householdData && bill.householdData.classification) || 'Residential';
+        const meterNumber = bill.meterNumber || (bill.meterData && bill.meterData.meterNumber) || 'N/A';
 
-        return `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Statement of Account - ${accountName}</title>
-    <style>
-        @media print {
-            @page {
-                size: 58mm auto;
-                margin: 5mm;
-            }
-            body {
-                margin: 0;
-                padding: 0;
-            }
+        // Format currency
+        const formatPHP = function(amount) {
+            const num = parseFloat(amount || 0).toFixed(2);
+            return '₱' + num.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        };
+
+        // Get billing breakdown
+        const minimumCharge = bill.minimumCharge || (bill.rateSnapshot && bill.rateSnapshot.minimumCharge) || 0;
+        const includedConsumption = bill.includedConsumption || (bill.rateSnapshot && bill.rateSnapshot.includedConsumption) || 0;
+        const excessConsumption = bill.excessConsumption || 0;
+        const excessRate = bill.excessRate || (bill.rateSnapshot && bill.rateSnapshot.excessRate) || 0;
+
+        // Additional fees section
+        let additionalFeesHTML = '';
+        if (bill.additionalFees) {
+            additionalFeesHTML = '<div class="info-row"><span class="info-label">Additional Fees:</span><span class="info-value">' + formatPHP(bill.additionalFees) + '</span></div>';
         }
-        
-        body {
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            line-height: 1.4;
-            max-width: 58mm;
-            margin: 0 auto;
-            padding: 5mm;
-            color: #000;
+
+        // Discounts section
+        let discountsHTML = '';
+        if (bill.discounts) {
+            discountsHTML = '<div class="info-row"><span class="info-label">Discounts/Credits:</span><span class="info-value">-' + formatPHP(bill.discounts) + '</span></div>';
         }
-        
-        .print-notice {
-            font-size: 9px;
-            color: #666;
-            margin-bottom: 3mm;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 4mm;
-        }
-        
-        .association-name {
-            font-size: 13px;
-            font-weight: bold;
-            margin-bottom: 1mm;
-        }
-        
-        .association-address {
-            font-size: 10px;
-            margin-bottom: 2mm;
-        }
-        
-        .statement-title {
-            font-size: 10px;
-            font-weight: bold;
-            margin-bottom: 3mm;
-        }
-        
-        .bill-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 2mm;
-            border-bottom: 1px dotted #ccc;
-            padding-bottom: 1mm;
-        }
-        
-        .bill-label {
-            font-weight: normal;
-        }
-        
-        .bill-value {
-            font-weight: bold;
-            text-align: right;
-        }
-        
-        .account-name-value {
-            background: #d0e7f5;
-            padding: 1mm 2mm;
-        }
-        
-        .total-row {
-            margin-top: 2mm;
-            padding-top: 2mm;
-            border-top: 2px solid #000;
-            font-weight: bold;
-            font-size: 12px;
-        }
-        
-        .due-date-row {
-            margin-top: 3mm;
-            font-weight: bold;
-        }
-        
-        .disconnection-row {
-            color: #666;
-            font-size: 10px;
-        }
-        
-        .reminders {
-            margin-top: 4mm;
-            padding-top: 3mm;
-            border-top: 1px solid #000;
-        }
-        
-        .reminders-title {
-            font-weight: bold;
-            margin-bottom: 2mm;
-        }
-        
-        .reminder-item {
-            margin-bottom: 1.5mm;
-            font-size: 10px;
-        }
-        
-        .no-border {
-            border-bottom: none;
-        }
-        
-        .barcode-section {
-            margin: 4mm 0;
-            padding: 3mm 0;
-            border-top: 1px solid #000;
-            border-bottom: 1px solid #000;
-            text-align: center;
-        }
-        
-        .barcode-title {
-            font-size: 10px;
-            font-weight: bold;
-            margin-bottom: 2mm;
-        }
-        
-        .barcode-container {
-            margin: 2mm 0;
-        }
-        
-        .barcode-number {
-            font-family: monospace;
-            font-size: 9px;
-            margin-top: 1mm;
-            letter-spacing: 1px;
-        }
-    </style>
-</head>
-<body>
-    <div class="print-notice">Print Notice</div>
-    
-    <div class="header">
-        <div class="association-name">${this.associationName}</div>
-        <div class="association-address">${this.associationAddress}</div>
-        <div class="statement-title">Statement of Account for the month of ${billingPeriodText}</div>
-    </div>
-    
-    <div class="bill-content">
-        <div class="bill-row">
-            <span class="bill-label">Account Name:</span>
-            <span class="bill-value account-name-value">${accountName}</span>
-        </div>
-        
-        <div class="bill-row">
-            <span class="bill-label">Account No.:</span>
-            <span class="bill-value">${accountNumber}</span>
-        </div>
-        
-        <div class="bill-row">
-            <span class="bill-label">Address:</span>
-            <span class="bill-value">${address}</span>
-        </div>
-        
-        <div class="bill-row">
-            <span class="bill-label">Classification:</span>
-            <span class="bill-value">${classification}</span>
-        </div>
-        
-        <div class="bill-row">
-            <span class="bill-label">Previous Reading:</span>
-            <span class="bill-value">${bill.previousReading.toFixed(0)}</span>
-        </div>
-        
-        <div class="bill-row">
-            <span class="bill-label">Current Reading:</span>
-            <span class="bill-value">${bill.currentReading.toFixed(0)}</span>
-        </div>
-        
-        <div class="bill-row">
-            <span class="bill-label">Usage:</span>
-            <span class="bill-value">${bill.usage.toFixed(0)} cubic meters</span>
-        </div>
-        
-        <div class="bill-row">
-            <span class="bill-label">Current Bill:</span>
-            <span class="bill-value">₱ ${bill.currentBill.toFixed(0)}</span>
-        </div>
-        
-        <div class="bill-row no-border">
-            <span class="bill-label">Arrears:</span>
-            <span class="bill-value">₱ ${bill.arrears.toFixed(0)}</span>
-        </div>
-        
-        <div class="bill-row total-row">
-            <span class="bill-label">Total Due:</span>
-            <span class="bill-value">₱ ${bill.totalDue.toFixed(0)}</span>
-        </div>
-        
-        <div class="bill-row due-date-row">
-            <span class="bill-label">Due Date:</span>
-            <span class="bill-value">${dueDate}</span>
-        </div>
-        
-        <div class="bill-row disconnection-row no-border">
-            <span class="bill-label">Disconnection Date:</span>
-            <span class="bill-value">${disconnectionDate}</span>
-        </div>
-    </div>
-    
-    <div class="barcode-section">
-        <div class="barcode-title">Payment Barcode</div>
-        <div class="barcode-container">
-            <svg id="barcode"></svg>
-        </div>
-        <div class="barcode-number">${this.generatePaymentCode(bill)}</div>
-        <div style="font-size: 9px; margin-top: 2mm; color: #666;">
-            Scan this at cashier to pay your bill
-        </div>
-    </div>
-    
-    <div class="reminders">
-        <div class="reminders-title">Reminders</div>
-        ${this.formatReminders(reminders)}
-    </div>
-    
-    <div style="text-align: center; margin-top: 4mm; font-weight: bold;">
-        Thank you!
-    </div>
-</body>
-</html>
-        `;
+
+        // Build detailed HTML with complete breakdown
+        const html = '<!DOCTYPE html>' +
+'<html>' +
+'<head>' +
+'    <meta charset="UTF-8">' +
+'    <title>Water Bill - ' + accountName + '</title>' +
+'    <style>' +
+'        @media print {' +
+'            @page { size: 80mm auto; margin: 3mm; }' +
+'            body { margin: 0; padding: 0; }' +
+'        }' +
+'        body {' +
+'            font-family: "Courier New", Consolas, monospace;' +
+'            font-size: 11px;' +
+'            line-height: 1.5;' +
+'            max-width: 80mm;' +
+'            margin: 0 auto;' +
+'            padding: 5mm;' +
+'            color: #000;' +
+'            background: white;' +
+'        }' +
+'        .print-notice { font-size: 9px; color: #666; margin-bottom: 3mm; text-align: center; }' +
+'        .header { text-align: center; margin-bottom: 5mm; border-bottom: 2px solid #000; padding-bottom: 3mm; }' +
+'        .association-name { font-size: 14px; font-weight: bold; margin-bottom: 1mm; }' +
+'        .association-address { font-size: 10px; margin-bottom: 3mm; }' +
+'        .statement-title { font-size: 11px; font-weight: bold; margin-top: 2mm; }' +
+'        .section { margin: 3mm 0; padding: 2mm 0; }' +
+'        .section-title { font-weight: bold; font-size: 10px; text-transform: uppercase; margin-bottom: 2mm; border-bottom: 1px solid #000; padding-bottom: 1mm; }' +
+'        .info-row { display: flex; justify-content: space-between; padding: 1mm 0; border-bottom: 1px dotted #ddd; }' +
+'        .info-label { font-weight: normal; }' +
+'        .info-value { font-weight: bold; text-align: right; }' +
+'        .total-row { font-size: 13px; font-weight: bold; padding: 3mm; margin: 3mm 0; border: 2px solid #000; background: #f5f5f5; text-align: center; }' +
+'        .reminders { margin-top: 5mm; padding-top: 3mm; border-top: 2px solid #000; font-size: 10px; }' +
+'        .reminders-title { font-weight: bold; margin-bottom: 2mm; }' +
+'        .reminder-item { margin-bottom: 2mm; padding-left: 3mm; }' +
+'        .barcode-section { margin: 5mm 0; padding: 3mm; border: 2px solid #000; text-align: center; }' +
+'        .barcode-title { font-size: 10px; font-weight: bold; margin-bottom: 2mm; }' +
+'        .barcode-number { font-family: "Courier New", monospace; font-size: 9px; margin-top: 2mm; letter-spacing: 1px; }' +
+'        .footer { text-align: center; margin-top: 5mm; padding-top: 3mm; border-top: 1px solid #000; font-weight: bold; font-size: 12px; }' +
+'        .no-border { border-bottom: none; }' +
+'    </style>' +
+'</head>' +
+'<body>' +
+'    <div class="print-notice">Print Notice</div>' +
+'    <div class="header">' +
+'        <div class="association-name">' + this.associationName + '</div>' +
+'        <div class="association-address">' + this.associationAddress + '</div>' +
+'        <div class="statement-title">Statement of Account for the Month of ' + billingPeriodText + '</div>' +
+'    </div>' +
+'    <div class="section">' +
+'        <div class="section-title">Account Information</div>' +
+'        <div class="info-row"><span class="info-label">Account Name:</span><span class="info-value">' + accountName + '</span></div>' +
+'        <div class="info-row"><span class="info-label">Account No.:</span><span class="info-value">' + accountNumber + '</span></div>' +
+'        <div class="info-row"><span class="info-label">Address:</span><span class="info-value">' + address + '</span></div>' +
+'        <div class="info-row"><span class="info-label">Classification:</span><span class="info-value">' + classification + '</span></div>' +
+'        <div class="info-row no-border"><span class="info-label">Meter Number:</span><span class="info-value">' + meterNumber + '</span></div>' +
+'    </div>' +
+'    <div class="section">' +
+'        <div class="section-title">Reading Information</div>' +
+'        <div class="info-row"><span class="info-label">Previous Reading:</span><span class="info-value">' + bill.previousReading.toFixed(0) + ' m³</span></div>' +
+'        <div class="info-row"><span class="info-label">Current Reading:</span><span class="info-value">' + bill.currentReading.toFixed(0) + ' m³</span></div>' +
+'        <div class="info-row no-border"><span class="info-label">Usage:</span><span class="info-value">' + bill.usage.toFixed(2) + ' cubic meters</span></div>' +
+'    </div>' +
+'    <div class="section">' +
+'        <div class="section-title">Billing Breakdown</div>' +
+'        <div class="info-row"><span class="info-label">Minimum Charge:</span><span class="info-value">' + formatPHP(minimumCharge) + '</span></div>' +
+'        <div class="info-row"><span class="info-label">Included Consumption:</span><span class="info-value">' + includedConsumption.toFixed(0) + ' m³</span></div>' +
+'        <div class="info-row"><span class="info-label">Excess Consumption:</span><span class="info-value">' + excessConsumption.toFixed(2) + ' m³</span></div>' +
+'        <div class="info-row"><span class="info-label">Excess Rate per m³:</span><span class="info-value">' + formatPHP(excessRate) + '</span></div>' +
+'        <div class="info-row" style="font-weight: bold; border-top: 1px solid #000; padding-top: 2mm; margin-top: 2mm;">' +
+'            <span class="info-label">Current Bill:</span><span class="info-value">' + formatPHP(bill.currentBill) + '</span>' +
+'        </div>' +
+'        <div class="info-row"><span class="info-label">Arrears:</span><span class="info-value">' + formatPHP(bill.arrears) + '</span></div>' +
+additionalFeesHTML +
+discountsHTML +
+'    </div>' +
+'    <div class="total-row">' +
+'        <div>TOTAL DUE</div>' +
+'        <div style="font-size: 16px; margin-top: 1mm;">' + formatPHP(bill.totalDue) + '</div>' +
+'    </div>' +
+'    <div class="section">' +
+'        <div class="section-title">Payment Information</div>' +
+'        <div class="info-row"><span class="info-label">Due Date:</span><span class="info-value">' + dueDate + '</span></div>' +
+disconnectionInfo +
+'    </div>' +
+'    <div class="barcode-section">' +
+'        <div class="barcode-title">Payment Barcode</div>' +
+'        <div style="margin: 3mm 0;"><svg id="barcode"></svg></div>' +
+'        <div class="barcode-number">' + this.generatePaymentCode(bill) + '</div>' +
+'        <div style="font-size: 9px; margin-top: 2mm; color: #666;">Scan this at cashier to pay</div>' +
+'    </div>' +
+'    <div class="reminders">' +
+'        <div class="reminders-title">REMINDERS</div>' +
+this.formatReminders(reminders) +
+'    </div>' +
+'    <div class="footer">Thank you!</div>' +
+'</body>' +
+'</html>';
+
+        return html;
     }
 
     /**
@@ -320,41 +219,15 @@ class PrinterService {
      */
     generatePaymentCode(bill) {
         // Format: DWA + Year + Month + MeterNumber + Amount (padded)
-        const [year, month] = bill.billingPeriod.split('-');
-        const meterNumber = (bill.meterData?.meterNumber || '0000').padStart(4, '0');
-        const amount = Math.round(bill.totalDue).toString().padStart(6, '0');
+        const yearMonth = bill.billingPeriod.split('-');
+        const year = yearMonth[0];
+        const month = yearMonth[1];
+        const meterNum = (bill.meterData && bill.meterData.meterNumber) || '0000';
+        const meterNumber = ('0000' + meterNum).slice(-4);
+        const amount = ('000000' + Math.round(bill.totalDue).toString()).slice(-6);
         
         // Generate payment code: DWA + YYYYMM + MeterNumber + Amount
-        return `DWA${year}${month}${meterNumber}${amount}`;
-    }
-
-    /**
-     * Generate barcode using Code 128
-     */
-    generateBarcode(canvas, code) {
-        const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
-        
-        // Clear canvas
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, width, height);
-        
-        // Simple barcode representation (alternating bars)
-        ctx.fillStyle = 'black';
-        const barWidth = width / (code.length * 2);
-        
-        for (let i = 0; i < code.length; i++) {
-            const charCode = code.charCodeAt(i);
-            const barCount = (charCode % 4) + 1; // 1-4 bars per character
-            
-            for (let j = 0; j < barCount; j++) {
-                const x = (i * 2 * barWidth) + (j * barWidth * 0.5);
-                if ((i + j) % 2 === 0) { // Alternate black/white
-                    ctx.fillRect(x, 0, barWidth * 0.4, height);
-                }
-            }
-        }
+        return 'DWA' + year + month + meterNumber + amount;
     }
 
     /**
@@ -364,28 +237,33 @@ class PrinterService {
         const defaultReminders = [
             'Disregard this notice if payment has been made.',
             'This serves as Notice of Disconnection.',
-            'Please pay on time. Reconnection fee is Php 500.',
+            'Please pay on time.',
             'Pay bills directly to the cashier.',
             'Kindly report leaks or acts of vandalism on our pipeline.'
         ];
 
         // Split reminders by newline or use default
-        const reminders = remindersText ? remindersText.split('\n') : defaultReminders;
+        const remindersList = remindersText ? remindersText.split('\n') : defaultReminders;
 
-        return reminders.map((reminder, index) => 
-            `<div class="reminder-item">${index + 1}. ${reminder.trim()}</div>`
-        ).join('');
+        let html = '';
+        for (let i = 0; i < remindersList.length; i++) {
+            const reminder = remindersList[i].trim();
+            if (reminder) {
+                html += '<div class="reminder-item">' + (i + 1) + '. ' + reminder + '</div>';
+            }
+        }
+        return html;
     }
 
     /**
      * Get default reminders
      */
     getDefaultReminders() {
-        return `Disregard this notice if payment has been made.
-This serves as Notice of Disconnection.
-Please pay on time. Reconnection fee is Php 500.
-Pay bills directly to the cashier.
-Kindly report leaks or acts of vandalism on our pipeline.`;
+        return 'Disregard this notice if payment has been made.\n' +
+               'This serves as Notice of Disconnection.\n' +
+               'Please pay on time.\n' +
+               'Pay bills directly to the cashier.\n' +
+               'Kindly report leaks or acts of vandalism on our pipeline.';
     }
 
     /**
@@ -404,8 +282,8 @@ Kindly report leaks or acts of vandalism on our pipeline.`;
         printWindow.document.close();
 
         // Wait for content to load, then generate barcode and print
-        printWindow.onload = () => {
-            setTimeout(() => {
+        printWindow.onload = function() {
+            setTimeout(function() {
                 // Generate barcode using JsBarcode library
                 const barcodeElement = printWindow.document.getElementById('barcode');
                 if (barcodeElement && paymentCode && typeof JsBarcode !== 'undefined') {
@@ -420,59 +298,20 @@ Kindly report leaks or acts of vandalism on our pipeline.`;
                     } catch (error) {
                         console.error('Barcode generation error:', error);
                         // Fallback: show text only
-                        barcodeElement.innerHTML = `<div style="padding: 10px; border: 2px solid #000; font-family: monospace;">${paymentCode}</div>`;
+                        barcodeElement.innerHTML = '<div style="padding: 10px; border: 2px solid #000; font-family: monospace;">' + paymentCode + '</div>';
                     }
                 } else {
                     // No JsBarcode library, show text barcode
                     if (barcodeElement) {
-                        barcodeElement.innerHTML = `<div style="padding: 10px; border: 2px solid #000; font-family: monospace; font-size: 10px;">${paymentCode}</div>`;
+                        barcodeElement.innerHTML = '<div style="padding: 10px; border: 2px solid #000; font-family: monospace; font-size: 10px;">' + paymentCode + '</div>';
                     }
                 }
                 
                 // Print after barcode is generated
-                setTimeout(() => {
+                setTimeout(function() {
                     printWindow.print();
                 }, 200);
             }, 300);
         };
-    }
-
-    /**
-     * Generate plain text bill for thermal printer (alternative)
-     */
-    generatePlainTextBill(bill, reminders) {
-        const [year, month] = bill.billingPeriod.split('-');
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                          'July', 'August', 'September', 'October', 'November', 'December'];
-        const billingPeriodText = `${monthNames[parseInt(month) - 1]} ${year}`;
-
-        let text = '';
-        text += 'Print Notice\n';
-        text += '\n';
-        text += `${this.associationName}\n`;
-        text += `${this.associationAddress}\n`;
-        text += '\n';
-        text += `Statement of Account for the month of ${billingPeriodText}\n`;
-        text += '\n';
-        text += `Account Name: ${bill.householdData?.fullName || bill.meterData?.ownerName}\n`;
-        text += `Account No.: ${bill.meterData?.meterNumber}\n`;
-        text += `Address: ${bill.householdData?.address || 'N/A'}\n`;
-        text += `Classification: ${bill.householdData?.classification || 'Residential'}\n`;
-        text += '\n';
-        text += `Previous Reading: ${bill.previousReading.toFixed(0)}\n`;
-        text += `Current Reading: ${bill.currentReading.toFixed(0)}\n`;
-        text += `Usage: ${bill.usage.toFixed(0)} cubic meters\n`;
-        text += '\n';
-        text += `Current Bill: ₱${bill.currentBill.toFixed(0)}\n`;
-        text += `Arrears: ₱${bill.arrears.toFixed(0)}\n`;
-        text += `Total Due: ₱${bill.totalDue.toFixed(0)}\n`;
-        text += '\n';
-        text += `Due Date: ${new Date(bill.dueDate).toLocaleDateString()}\n`;
-        text += `Disconnection Date: ${new Date(bill.disconnectionDate).toLocaleDateString()}\n`;
-        text += '\n';
-        text += 'Reminders\n';
-        text += reminders;
-
-        return text;
     }
 }

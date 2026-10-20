@@ -13,6 +13,7 @@ let meterLocationManager; // Water meter location management
 let waterMeterManager; // Individual water meter management
 let meterReadingManager; // Meter reading workflow
 let billingManager; // Billing calculation system
+let billingSettingsManager; // Billing settings UI
 let printerService; // Bill printing service
 
 // UI Elements
@@ -98,6 +99,10 @@ async function initializeApp() {
         billingManager = new BillingManager(database);
         window.billingManager = billingManager;
         await billingManager.initialize();
+        
+        // Initialize billing settings manager
+        billingSettingsManager = new BillingSettingsManager(database, billingManager);
+        window.billingSettingsManager = billingSettingsManager;
         
         // Initialize printer service
         printerService = new PrinterService(database);

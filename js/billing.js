@@ -1,17 +1,29 @@
 /**
  * Billing.js - Billing Calculation System
  * Handles water bill calculation with configurable rates and arrears
+ * 
+ * BILLING FORMULA (Temporary Configuration):
+ * - Minimum Charge: ₱100 (includes 10 m³)
+ * - Excess Rate: ₱100 per m³ over 10 m³ (TEMPORARY - must be configured)
+ * - If usage <= 10 m³: Bill = ₱100
+ * - If usage > 10 m³: Bill = ₱100 + ((usage - 10) × ₱100)
  */
 
 class BillingManager {
     constructor(database) {
         this.db = database;
         this.currentBill = null;
+        // TEMPORARY DEVELOPMENT RATES - Must be editable in settings
         this.defaultRates = {
-            minimumCharge: 150,
-            ratePerCubicMeter: 15,
+            minimumCharge: 100,           // ₱100 minimum
+            includedConsumption: 10,       // 10 m³ included
+            excessRate: 100,              // ₱100 per excess m³ (TEMPORARY)
             dueDaysAfterReading: 10,
-            disconnectionDaysAfterDue: 30
+            disconnectionDaysAfterDue: 30,
+            currency: 'PHP',
+            billingMethod: 'minimum_plus_excess',
+            decimalPlaces: 2,
+            ratesVerified: false          // Flag to indicate temporary rates
         };
     }
 
@@ -30,8 +42,11 @@ class BillingManager {
                             case 'minimumCharge':
                                 this.defaultRates.minimumCharge = parseFloat(setting.value);
                                 break;
-                            case 'ratePerCubicMeter':
-                                this.defaultRates.ratePerCubicMeter = parseFloat(setting.value);
+                            case 'includedConsumption':
+                                this.defaultRates.includedConsumption = parseFloat(setting.value);
+                                break;
+                            case 'excessRate':
+                                this.defaultRates.excessRate = parseFloat(setting.value);
                                 break;
                             case 'dueDaysAfterReading':
                                 this.defaultRates.dueDaysAfterReading = parseInt(setting.value);
@@ -39,14 +54,22 @@ class BillingManager {
                             case 'disconnectionDaysAfterDue':
                                 this.defaultRates.disconnectionDaysAfterDue = parseInt(setting.value);
                                 break;
+                            case 'ratesVerified':
+                                this.defaultRates.ratesVerified = setting.value === 'true';
+                                break;
                         }
                     }
                 });
             }
 
             console.log('Billing rates loaded:', this.defaultRates);
+            
+            // Show warning if rates are not verified
+            if (!this.defaultRates.ratesVerified) {
+                console.warn('⚠️ USING TEMPORARY BILLING RATES - Configure official rates in Billing Settings');
+            }
         } catch (error) {
-            console.error('Failed to load billing rates, using defaults:', error);
+            console.error('Failed to load billing rates, using temporary defaults:', error);
         }
     }
 
@@ -56,13 +79,13 @@ class BillingManager {
     async calculateBill(readingData) {
         try {
             // Get arrears from previous unpaid bills
-            const arrears = await this.calculateArrears(readingData.meterId);
+            const arrears = await this.calculateArrears(readingData.meter.id);
 
             // Get current rates (can be customized per meter/household in future)
             const rates = { ...this.defaultRates };
 
-            // Calculate water charges
-            const waterCharge = this.calculateWaterCharge(readingData.usage, rates);
+            // Calculate water charges using new formula
+            const waterChargeBreakdown = this.calculateWaterCharge(readingData.usage, rates);
 
             // Calculate dates
             const readingDate = new Date(readingData.readingDate);
@@ -70,32 +93,61 @@ class BillingManager {
             const disconnectionDate = this.calculateDisconnectionDate(dueDate, rates.disconnectionDaysAfterDue);
 
             // Calculate total
-            const currentBill = waterCharge;
+            const currentBill = waterChargeBreakdown.totalCharge;
             const totalDue = currentBill + arrears;
+
+            // Generate unique bill reference
+            const billReference = this.generateBillReference(readingData.meter.id);
+
+            // Create billing period from reading date
+            const billingPeriod = `${readingDate.getFullYear()}-${String(readingDate.getMonth() + 1).padStart(2, '0')}`;
 
             // Create bill object
             this.currentBill = {
-                meterId: readingData.meterId,
-                householdId: readingData.householdId,
-                billingPeriod: readingData.billingPeriod,
+                billReference: billReference,
+                meterId: readingData.meter.id,
+                meterNumber: readingData.meter.meterNumber,
+                householdId: readingData.household?.id || null,
+                billingPeriod: billingPeriod,
                 previousReading: readingData.previousReading,
                 currentReading: readingData.currentReading,
                 usage: readingData.usage,
+                
+                // Detailed breakdown
+                minimumCharge: rates.minimumCharge,
+                includedConsumption: rates.includedConsumption,
+                excessConsumption: waterChargeBreakdown.excessConsumption,
+                excessRate: rates.excessRate,
+                waterCharge: waterChargeBreakdown.totalCharge,
+                
                 currentBill: currentBill,
                 arrears: arrears,
                 totalDue: totalDue,
+                
                 dueDate: dueDate.toISOString(),
                 disconnectionDate: disconnectionDate.toISOString(),
+                
+                // Snapshot of rates used for this bill
                 rateSnapshot: {
                     minimumCharge: rates.minimumCharge,
-                    ratePerCubicMeter: rates.ratePerCubicMeter,
+                    includedConsumption: rates.includedConsumption,
+                    excessRate: rates.excessRate,
                     dueDaysAfterReading: rates.dueDaysAfterReading,
                     disconnectionDaysAfterDue: rates.disconnectionDaysAfterDue,
+                    currency: rates.currency,
+                    billingMethod: rates.billingMethod,
+                    ratesVerified: rates.ratesVerified,
                     appliedAt: new Date().toISOString()
                 },
-                meterData: readingData.meterData,
-                householdData: readingData.householdData,
-                createdAt: readingData.readingDate
+                
+                // Store full context for receipts
+                meterData: readingData.meter,
+                householdData: readingData.household,
+                locationData: readingData.location,
+                
+                paymentStatus: 'unpaid',
+                createdAt: readingDate.toISOString(),
+                updatedAt: new Date().toISOString()
             };
 
             return this.currentBill;
@@ -106,19 +158,53 @@ class BillingManager {
     }
 
     /**
-     * Calculate water charge based on usage
+     * Calculate water charge based on usage using minimum + excess formula
+     * 
+     * Formula:
+     * - If usage <= includedConsumption: charge = minimumCharge
+     * - If usage > includedConsumption: charge = minimumCharge + ((usage - includedConsumption) × excessRate)
+     * 
+     * Examples with default rates (₱100 min, 10 m³ included, ₱100/m³ excess):
+     * - 0 m³ = ₱100
+     * - 5 m³ = ₱100
+     * - 10 m³ = ₱100
+     * - 11 m³ = ₱200 (₱100 + (1 × ₱100))
+     * - 12 m³ = ₱300 (₱100 + (2 × ₱100))
+     * - 15 m³ = ₱600 (₱100 + (5 × ₱100))
+     * - 20 m³ = ₱1,100 (₱100 + (10 × ₱100))
      */
     calculateWaterCharge(usage, rates) {
-        // Minimum charge applies regardless of usage
         const minimumCharge = rates.minimumCharge;
+        const includedConsumption = rates.includedConsumption;
+        const excessRate = rates.excessRate;
         
-        // Additional charge for usage
-        const usageCharge = usage * rates.ratePerCubicMeter;
+        let totalCharge;
+        let excessConsumption = 0;
         
-        // Total is minimum + usage charge
-        const total = minimumCharge + usageCharge;
+        if (usage <= includedConsumption) {
+            // Usage within included consumption - only pay minimum
+            totalCharge = minimumCharge;
+        } else {
+            // Usage exceeds included consumption - pay minimum + excess
+            excessConsumption = usage - includedConsumption;
+            const excessCharge = excessConsumption * excessRate;
+            totalCharge = minimumCharge + excessCharge;
+        }
         
-        return parseFloat(total.toFixed(2));
+        // Round to 2 decimal places for currency
+        totalCharge = parseFloat(totalCharge.toFixed(rates.decimalPlaces || 2));
+        
+        return {
+            totalCharge: totalCharge,
+            excessConsumption: excessConsumption,
+            breakdown: {
+                minimumCharge: minimumCharge,
+                includedConsumption: includedConsumption,
+                excessConsumption: excessConsumption,
+                excessRate: excessRate,
+                excessCharge: excessConsumption * excessRate
+            }
+        };
     }
 
     /**
@@ -193,6 +279,20 @@ class BillingManager {
      */
     clearCurrentBill() {
         this.currentBill = null;
+    }
+
+    /**
+     * Generate unique bill reference number
+     * Format: DWA-YYYYMM-XXXXX
+     */
+    generateBillReference(meterId) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const random = String(Math.floor(Math.random() * 99999)).padStart(5, '0');
+        const meterPart = String(meterId).padStart(4, '0');
+        
+        return `DWA${year}${month}${meterPart}${random}`;
     }
 
     /**
